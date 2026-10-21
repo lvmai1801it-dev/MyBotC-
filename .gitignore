@@ -1,0 +1,48 @@
+# Visual Studio / Rider
+.vs/
+.vscode/
+*.user
+*.suo
+*.userprefs
+_ReSharper*/
+*.DotSettings.user
+
+# Build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+publish/
+
+# Test results
+TestResults/
+*.trx
+coverage*.json
+coverage*.xml
+
+# NuGet
+*.nupkg
+packages/
+*.nuget.props
+*.nuget.targets
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Project-specific runtime artifacts
+logs/
+*.log
+screenshots/
+mock_recording/
+test-config.json
+test-schema.json
+config.json
+config-schema.json
+
+# IDE user files
+*.sln.docstates
+*.sln.ide/
+.vsconfig

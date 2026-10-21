@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.2" />
+    <PackageReference Include="FluentAssertions" Version="8.11.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="Moq" Version="4.20.72" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MyBot.Core\MyBot.Core.csproj" />
+    <ProjectReference Include="..\..\src\MyBot.App\MyBot.App.csproj" />
+    <ProjectReference Include="..\..\src\MyBot.UI.Tabs.Log\MyBot.UI.Tabs.Log.csproj" />
+    <ProjectReference Include="..\..\src\MyBot.Core.Config\MyBot.Core.Config.csproj" />
+    <ProjectReference Include="..\..\src\MyBot.Core.Capture\MyBot.Core.Capture.csproj" />
+    <ProjectReference Include="..\..\src\MyBot.Core.FSM\MyBot.Core.FSM.csproj" />
+    <ProjectReference Include="..\..\src\MyBot.Core.ActionContract\MyBot.Core.ActionContract.csproj" />
+    <ProjectReference Include="..\..\src\MyBot.Core.AntiBan\MyBot.Core.AntiBan.csproj" />
+  </ItemGroup>
+
+</Project>
