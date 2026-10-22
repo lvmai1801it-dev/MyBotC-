@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace MyBot.App;
+namespace MyBot.Core.Capture;
 
 public static class EmulatorFinder
 {

@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MyBot.Core.Abstractions;
 using MyBot.Core.AntiBan;
+using MyBot.Core.Capture;
 using MyBot.Core.Config;
 using MyBot.Core.CV;
 using MyBot.Core.FSM;
@@ -33,6 +34,9 @@ public static class Startup
 
         // T7.27: Bộ chạy tiến trình dùng cho ADB capture
         services.AddSingleton<IProcessRunner, ProcessRunner>();
+
+        // CORE-LOOP-FINAL: driver tìm cửa sổ giả lập và tạo capture/input backend.
+        services.AddSingleton<IEmulatorDriver, WindowsEmulatorDriver>();
 
         // INT-1: Template matcher và bộ delay cho test harness harvest
         services.AddSingleton<ITemplateMatcher, TemplateMatcher>();

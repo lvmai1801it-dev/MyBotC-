@@ -1,8 +1,8 @@
 # 🚀 MYBOT C# WPF - PROJECT PROGRESS & CONTEXT
 
-> **Cập nhật lần cuối:** Sau Task INT-3.1 (Hiệu chỉnh toạ độ đọc tài nguyên theo ảnh MEmu 860x732)
-> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1–T4.8, T4.R, T5.1 (tối giản), INT-1, INT-1.1, INT-2.5, FIX-INT2, FIX-OCR-2, FIX-OCR-4, FIX-OCR-6, FIX-OCR-7, INT-OCR-NATIVE, FIX-OCR-NATIVE, INT-3, T7.25, T7.26, T7.27 và T7.28.
-> **Tổng số Tests:** 156/156 PASS (153 Core + 1 CoC + 1 Integration + 1 UI).
+> **Cập nhật lần cuối:** Sau Task CORE-LOOP-FINAL (Skeleton bot loop: Start, ProfileLock, PixelGuard, WindowNormalize)
+> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1–T4.8, T4.R, T5.1 (tối giản), INT-1, INT-1.1, INT-2.5, FIX-INT2, FIX-OCR-2, FIX-OCR-4, FIX-OCR-6, FIX-OCR-7, INT-OCR-NATIVE, FIX-OCR-NATIVE, INT-3, T7.25, T7.26, T7.27, T7.28 và CORE-LOOP-FINAL.
+> **Tổng số Tests:** 166/166 PASS (163 Core + 1 CoC + 1 Integration + 1 UI).
 > **Commit gần nhất:** xem `git log -1` — `fix(OCR): calibrate resource rects for 860x732 frame`.
 
 ## 1. TỔNG QUAN TIẾN ĐỘ
@@ -60,6 +60,7 @@
 32. **Đọc toàn bộ tài nguyên (INT-3):** thêm `Gems`, `BuilderText`; helper `ReadResourceRegion(frame, rect, name, updateAction, updateTextAction)` cắt vùng → OCR → lọc số → lưu `{name}_crop.png` → log raw/parsed; `ReadAllResourcesAsync` chụp 1 frame, đọc Gold/Elixir/DarkElixir/Gems/Builders, vẽ 5 khung màu và lưu `debug_all_resources.png`; nút **Read Resources** thay cho **Read Gold**; Bottom Panel hiển thị Gems và `BuilderText` (`x/5`).
 33. **Hiệu chỉnh toạ độ tài nguyên (INT-3.1):** đo lại trên ảnh chụp MEmu **860x732**: DE mở rộng `(643,87,205,32)` để không mất chữ số cuối; Gems đổi sang `(752,127,62,27)` (viên ngọc xanh dưới thanh DE, trước đây tràn khỏi khung 860); Builders tách thành 2 ô số `(754,599,11,24)` + `(775,599,17,24)` vì model mặc định `coc-ms` đọc `1/4` thành `1-# 1-`; dùng model chuyên dụng `coc-Builders` cho từng ô → `1` và `4`, ghép lại `BuilderText = "1/4"`. `IOcrEngine` có thêm overload `Recognize(Mat, string model)` (default implementation nên engine fallback không phải sửa). Gold/Elixir/DE/Gems đọc đúng: `6 253 000`, `4 817 251`, `80 549`, `70`.
 34. **Native OCR (INT-OCR-NATIVE):** thêm `MyBotNativeOcrEngine` gọi trực tiếp `MyBot.run.dll` gốc (module 32-bit) qua P/Invoke: `ocr` (đồng bộ) và `DoOCR` + `GetAsyncResult` (ImgLoc, bất đồng bộ). Copy `native/lib` (DLL + 90 file `listSymbols_*.xml` + 6 `.imglocdat`) ra `lib` cạnh exe; `MyBot.App` chuyển `PlatformTarget=x86`, test host `MyBot.Core.Tests` cũng x86. `Startup` ưu tiên engine native, fallback `DigitOcrEngine`. Build 0w/0e, 156/156 test PASS. Cần chạy thử **Read Gold** với MEmu thật để xác nhận vùng cắt và model `coc-ms`.
+35. **Skeleton Bot Loop (CORE-LOOP-FINAL):** `MainScreenGuard` kiểm tra pixel mốc `(840,53)` BGR `(255,65,255)` dung sai 20; `Win32WindowNormalizer` ép cửa sổ render về 860x732; `ProfileLock` named Mutex `Global\MyBot.Profile.*` chống chạy trùng profile; `WindowsEmulatorDriver` (Core.Capture) tìm cửa sổ render và tạo GDI/PostMessage backend (`EmulatorFinder` chuyển từ App sang Core.Capture). `StartBot`/`StopBot` dùng `CancellationTokenSource` + vòng lặp nền `BotLoopAsync`: tìm cửa sổ → resize → capture → MainScreenGuard → OCR tài nguyên mỗi 2s; finally đưa FSM về Idle và nhả khóa. Pause/Resume được vòng lặp tôn trọng. Đã đối chiếu ảnh thật: pixel `(840,53)` = RGB(255,67,255) → BGR(255,67,255), khớp `0xFF41FF` (0xRRGGBB) với dung sai 20. 166/166 test PASS.
 
 ## 4. BÀI HỌC KINH NGHIỆM (LESSONS LEARNED)
 - **Flaky Tests:** Không dùng `Thread.Sleep`, luôn dùng `ITimeProvider`.

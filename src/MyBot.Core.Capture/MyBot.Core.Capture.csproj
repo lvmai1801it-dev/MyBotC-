@@ -12,5 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MyBot.Core\MyBot.Core.csproj" />
+    <!-- WindowsEmulatorDriver tạo input backend bằng PostMessage. -->
+    <ProjectReference Include="..\MyBot.Core.Input\MyBot.Core.Input.csproj" />
   </ItemGroup>
 </Project>

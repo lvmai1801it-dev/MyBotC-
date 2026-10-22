@@ -2,6 +2,8 @@ using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -12,6 +14,8 @@ using MyBot.Core.Capture;
 using MyBot.Core.Config;
 using MyBot.Core.FSM;
 using MyBot.Core.Input;
+using MyBot.Core.Utils;
+using MyBot.Game.CoC.State;
 using MyBot.Game.CoC.Village;
 using OpenCvSharp;
 
@@ -41,6 +45,24 @@ public partial class MainViewModel : ObservableObject
     private readonly ITemplateMatcher _matcher;
     private readonly HumanDelay _delay;
     private readonly IOcrEngine _ocrEngine;
+    private readonly IEmulatorDriver _emulatorDriver;
+    private readonly MainScreenGuard _mainScreenGuard = new();
+
+    // CORE-LOOP-FINAL: vòng lặp bot chạy nền và khóa profile dùng chung giữa các tiến trình.
+    private CancellationTokenSource? _botCts;
+    private ProfileLock? _profileLock;
+
+    // Chu kỳ chụp/kiểm tra màn hình của vòng lặp bot.
+    private const int PollIntervalMs = 2000;
+    private const string ProfileName = "Default";
+
+    // Toạ độ đã hiệu chỉnh theo ảnh chụp MEmu 860x732.
+    private static readonly OpenCvSharp.Rect GoldRect = new(643, 16, 200, 32);
+    private static readonly OpenCvSharp.Rect ElixirRect = new(643, 53, 200, 32);
+    private static readonly OpenCvSharp.Rect DarkElixirRect = new(643, 87, 205, 32);
+    private static readonly OpenCvSharp.Rect GemsRect = new(752, 127, 62, 27);
+    private static readonly OpenCvSharp.Rect BuilderAvailableRect = new(754, 599, 11, 24);
+    private static readonly OpenCvSharp.Rect BuilderTotalRect = new(775, 599, 17, 24);
 
     // T7.27: Đường dẫn ADB mặc định của MEmu (có thể chuyển sang ConfigManager sau).
     private readonly string _adbPath = @"F:\Microvirt\MEmu\adb.exe";
@@ -207,6 +229,7 @@ public partial class MainViewModel : ObservableObject
     /// <param name="matcher">Bộ so khớp ảnh mẫu dùng cho harvest.</param>
     /// <param name="delay">Bộ sinh độ trễ mô phỏng hành vi người.</param>
     /// <param name="ocrEngine">Bộ đọc chữ số từ ảnh (OCR).</param>
+    /// <param name="emulatorDriver">Driver tìm cửa sổ giả lập và tạo capture/input backend.</param>
     public MainViewModel(
         BotStateMachine fsm,
         IBotLogger logger,
@@ -214,7 +237,8 @@ public partial class MainViewModel : ObservableObject
         IProcessRunner processRunner,
         ITemplateMatcher matcher,
         HumanDelay delay,
-        IOcrEngine ocrEngine)
+        IOcrEngine ocrEngine,
+        IEmulatorDriver emulatorDriver)
     {
         _fsm = fsm ?? throw new ArgumentNullException(nameof(fsm));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -223,6 +247,7 @@ public partial class MainViewModel : ObservableObject
         _matcher = matcher ?? throw new ArgumentNullException(nameof(matcher));
         _delay = delay ?? throw new ArgumentNullException(nameof(delay));
         _ocrEngine = ocrEngine ?? throw new ArgumentNullException(nameof(ocrEngine));
+        _emulatorDriver = emulatorDriver ?? throw new ArgumentNullException(nameof(emulatorDriver));
 
         CurrentState = _fsm.CurrentState;
         StatusText = $"Status : {_fsm.CurrentState}";
@@ -260,58 +285,308 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Bắt đầu bot: Idle -> Starting, sau 2 giây chuyển sang Searching.
+    /// Bắt đầu bot: khóa profile, chuyển Idle -> Starting và chạy vòng lặp nền.
     /// </summary>
     [RelayCommand]
-    private async Task StartBot()
+    private void StartBot()
     {
-        if (_fsm.CurrentState != BotState.Idle) return;
+        if (_fsm.CurrentState != BotState.Idle)
+        {
+            return;
+        }
+
+        if (!ProfileLock.TryAcquire(ProfileName, out ProfileLock? profileLock))
+        {
+            AddLog("LỖI: Profile đang bị chạy bởi tiến trình khác!");
+            return;
+        }
+
+        _profileLock = profileLock;
+
+        var cts = new CancellationTokenSource();
+        _botCts = cts;
 
         _fsm.TransitionTo(BotState.Starting);
         AddLog("Bot Started");
 
-        await Task.Delay(2000);
+        _ = Task.Run(() => BotLoopAsync(cts), CancellationToken.None);
+    }
 
-        if (_fsm.CurrentState == BotState.Starting)
+    /// <summary>
+    /// Yêu cầu dừng bot. FSM được đưa về Idle trong finally của <see cref="BotLoopAsync"/>.
+    /// </summary>
+    [RelayCommand]
+    private void StopBot()
+    {
+        if (_botCts is null)
         {
+            AddLog($"Không thể dừng bot khi đang ở trạng thái {_fsm.CurrentState}");
+            return;
+        }
+
+        AddLog("Bot Stopping...");
+        _botCts.Cancel();
+    }
+
+    /// <summary>
+    /// Vòng lặp chính của bot: tìm cửa sổ giả lập, chuẩn hóa kích thước, chụp màn hình,
+    /// kiểm tra màn hình làng chính và cập nhật tài nguyên cho tới khi bị hủy.
+    /// </summary>
+    /// <param name="cts">Nguồn hủy của riêng vòng lặp này.</param>
+    private async Task BotLoopAsync(CancellationTokenSource cts)
+    {
+        CancellationToken token = cts.Token;
+        ProfileLock? ownedLock = _profileLock;
+        ICaptureBackend? capture = null;
+
+        AddLog("[Loop] Khởi động Bot...");
+
+        try
+        {
+            AddLog("Đang tìm cửa sổ giả lập...");
+            EmulatorInstance? instance = _emulatorDriver.DetectInstances().FirstOrDefault();
+            if (instance is null)
+            {
+                throw new InvalidOperationException(
+                    "Không tìm thấy cửa sổ giả lập (MEmu/LDPlayer/BlueStacks/Nox).");
+            }
+
+            AddLog($"Đã tìm thấy: {instance.Name}");
+
+            // Ép cửa sổ render về đúng khung 860x732 mà toạ độ OCR đã hiệu chỉnh.
+            Win32WindowNormalizer.EnsureWindowSize(instance.WindowHandle);
+            await Task.Delay(500, token);
+
+            ICaptureBackend captureBackend = _emulatorDriver.CreateCaptureBackend();
+            capture = captureBackend;
+
+            var target = new EmulatorTarget(
+                WindowHandle: instance.WindowHandle,
+                AdbSerial: $"127.0.0.1:{AdbPort}");
+
+            if (!captureBackend.Initialize(target))
+            {
+                throw new InvalidOperationException("Không khởi tạo được bộ chụp màn hình.");
+            }
+
             _fsm.TransitionTo(BotState.Searching);
+            AddLog($"Bot đang chạy (chu kỳ {PollIntervalMs}ms).");
+
+            bool? lastMainScreen = null;
+
+            while (!token.IsCancellationRequested)
+            {
+                // PauseBot đã chuyển FSM sang Pausing/Paused; vòng lặp chỉ chờ.
+                if (_fsm.CurrentState is BotState.Pausing or BotState.Paused or BotState.Resuming)
+                {
+                    await Task.Delay(PollIntervalMs, token);
+                    continue;
+                }
+
+                if (_fsm.CurrentState != BotState.Searching)
+                {
+                    await Task.Delay(200, token);
+                    continue;
+                }
+
+                using Mat frame = captureBackend.GrabFrame();
+                if (frame.Empty())
+                {
+                    AddLog("LỖI: Không chụp được khung hình.");
+                    await Task.Delay(PollIntervalMs, token);
+                    continue;
+                }
+
+                bool isMainScreen = _mainScreenGuard.IsMainScreen(frame);
+                if (lastMainScreen != isMainScreen)
+                {
+                    AddLog(isMainScreen
+                        ? "Đã nhận diện màn hình làng chính."
+                        : "Không phải màn hình làng chính — đang chờ...");
+                    lastMainScreen = isMainScreen;
+                }
+
+                if (isMainScreen)
+                {
+                    UpdateResourcesFromFrame(frame);
+                }
+
+                await Task.Delay(PollIntervalMs, token);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Dừng theo yêu cầu của người dùng.
+        }
+        catch (Exception ex)
+        {
+            // Ghi đầy đủ stack trace để bắt bệnh khi chạy thật.
+            AddLog($"LỖI BOT: {ex}");
+            TryTransitionTo(BotState.Error);
+        }
+        finally
+        {
+            capture?.Dispose();
+            FinishBotLoop();
+            ReleaseProfileLock(ownedLock);
+
+            // Chỉ dọn CTS của chính vòng lặp này (tránh xoá CTS của lần Start kế tiếp).
+            if (ReferenceEquals(_botCts, cts))
+            {
+                _botCts = null;
+                cts.Dispose();
+            }
+
+            AddLog("[Loop] Đã kết thúc.");
         }
     }
 
     /// <summary>
-    /// Dừng bot: Starting/Error -> Idle ngay; Searching/Pausing/Paused -> Stopping, sau 1 giây về Idle.
+    /// Cập nhật Gold/Elixir/DE/Gems/Builders từ một khung hình bằng OCR.
     /// </summary>
-    [RelayCommand]
-    private async Task StopBot()
+    /// <param name="frame">Khung hình màn hình làng chính.</param>
+    private void UpdateResourcesFromFrame(Mat frame)
     {
-        switch (_fsm.CurrentState)
-        {
-            case BotState.Starting:
-            case BotState.Uninitialized:
-            case BotState.Error:
-                _fsm.TransitionTo(BotState.Idle);
-                AddLog("Bot Stopped");
-                break;
+        int? gold = TryReadNumber(frame, GoldRect);
+        int? elixir = TryReadNumber(frame, ElixirRect);
+        int? darkElixir = TryReadNumber(frame, DarkElixirRect);
+        int? gems = TryReadNumber(frame, GemsRect);
 
+        int? builderAvailable = TryReadNumber(frame, BuilderAvailableRect, "coc-Builders");
+        int? builderTotal = TryReadNumber(frame, BuilderTotalRect, "coc-Builders");
+
+        string? builderText = builderAvailable is not null && builderTotal is not null
+            ? $"{builderAvailable.Value}/{builderTotal.Value}"
+            : builderAvailable?.ToString();
+
+        void Apply()
+        {
+            if (gold is not null) Gold = gold.Value;
+            if (elixir is not null) Elixir = elixir.Value;
+            if (darkElixir is not null) DarkElixir = darkElixir.Value;
+            if (gems is not null) Gems = gems.Value;
+            if (builderText is not null) BuilderText = builderText;
+        }
+
+        // Thuộc tính bind với WPF phải được cập nhật trên UI thread.
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is not null && !dispatcher.CheckAccess())
+        {
+            _ = dispatcher.InvokeAsync(Apply);
+        }
+        else
+        {
+            Apply();
+        }
+    }
+
+    /// <summary>
+    /// Cắt một vùng ảnh, chạy OCR và trả về số nguyên đầu tiên đọc được.
+    /// </summary>
+    /// <param name="frame">Ảnh chụp màn hình gốc.</param>
+    /// <param name="rect">Vùng cần đọc.</param>
+    /// <param name="model">Model OCR cần dùng; null = model mặc định.</param>
+    /// <returns>Giá trị đọc được, hoặc null nếu vùng ngoài khung/OCR thất bại.</returns>
+    private int? TryReadNumber(Mat frame, OpenCvSharp.Rect rect, string? model = null)
+    {
+        if (rect.X < 0 || rect.Y < 0 || rect.Right > frame.Width || rect.Bottom > frame.Height)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var crop = new Mat(frame, rect);
+            string rawText = model is null ? _ocrEngine.Recognize(crop) : _ocrEngine.Recognize(crop, model);
+            string cleanText = Regex.Replace(rawText, @"[^\d]", "");
+            return int.TryParse(cleanText, out int value) ? value : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning($"[OCR] Lỗi đọc vùng {rect}: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>Chuyển trạng thái FSM, bỏ qua nếu phép chuyển không hợp lệ.</summary>
+    private void TryTransitionTo(BotState newState)
+    {
+        try
+        {
+            _fsm.TransitionTo(newState);
+        }
+        catch (InvalidOperationException ex)
+        {
+            AddLog($"Không chuyển được trạng thái: {ex.Message}");
+        }
+    }
+
+    /// <summary>Đưa FSM về Idle theo đúng các phép chuyển hợp lệ khi vòng lặp kết thúc.</summary>
+    private void FinishBotLoop()
+    {
+        BotState state = _fsm.CurrentState;
+        if (state == BotState.Idle)
+        {
+            return;
+        }
+
+        switch (state)
+        {
             case BotState.Searching:
             case BotState.Pausing:
             case BotState.Paused:
-                _fsm.TransitionTo(BotState.Stopping);
-                AddLog("Bot Stopping...");
-
-                await Task.Delay(1000);
-
-                if (_fsm.CurrentState == BotState.Stopping)
-                {
-                    _fsm.TransitionTo(BotState.Idle);
-                    AddLog("Bot Stopped");
-                }
+                TryTransitionTo(BotState.Stopping);
                 break;
 
-            default:
-                AddLog($"Không thể dừng bot khi đang ở trạng thái {_fsm.CurrentState}");
+            case BotState.Resuming:
+                TryTransitionTo(BotState.Searching);
+                TryTransitionTo(BotState.Stopping);
+                break;
+
+            case BotState.Recovering:
+                TryTransitionTo(BotState.Error);
                 break;
         }
+
+        TryTransitionTo(BotState.Idle);
+        AddLog("Bot Stopped");
+    }
+
+    /// <summary>
+    /// Nhả khóa profile trên đúng luồng đã lấy khóa (UI thread).
+    /// </summary>
+    /// <param name="profileLock">Khóa do vòng lặp này sở hữu.</param>
+    private void ReleaseProfileLock(ProfileLock? profileLock)
+    {
+        if (profileLock is null)
+        {
+            return;
+        }
+
+        if (ReferenceEquals(_profileLock, profileLock))
+        {
+            _profileLock = null;
+        }
+
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is not null && !dispatcher.CheckAccess() && !dispatcher.HasShutdownStarted)
+        {
+            try
+            {
+                dispatcher.Invoke(profileLock.Dispose);
+                return;
+            }
+            catch (OperationCanceledException)
+            {
+                // Ứng dụng đang tắt; kernel dọn mutex khi tiến trình kết thúc.
+            }
+            catch (InvalidOperationException)
+            {
+                // Dispatcher đã ngừng hoạt động.
+            }
+        }
+
+        profileLock.Dispose();
     }
 
     /// <summary>
@@ -557,36 +832,28 @@ public partial class MainViewModel : ObservableObject
                     return;
                 }
 
-                // Toạ độ đã hiệu chỉnh theo ảnh chụp MEmu 860x732.
-                var goldRect = new OpenCvSharp.Rect(643, 16, 200, 32);
-                var elixirRect = new OpenCvSharp.Rect(643, 53, 200, 32);
-                var darkElixirRect = new OpenCvSharp.Rect(643, 87, 205, 32);
-                var gemsRect = new OpenCvSharp.Rect(752, 127, 62, 27);
+                ReadResourceRegion(frame, GoldRect, "Gold", val => Gold = val);
+                ReadResourceRegion(frame, ElixirRect, "Elixir", val => Elixir = val);
+                ReadResourceRegion(frame, DarkElixirRect, "DarkElixir", val => DarkElixir = val);
+                ReadResourceRegion(frame, GemsRect, "Gems", val => Gems = val);
+
                 // Bộ đếm "1/4" góc dưới phải: model mặc định đọc nhầm dấu "/" nên tách 2 ô số.
-                var builderAvailableRect = new OpenCvSharp.Rect(754, 599, 11, 24);
-                var builderTotalRect = new OpenCvSharp.Rect(775, 599, 17, 24);
-
-                ReadResourceRegion(frame, goldRect, "Gold", val => Gold = val);
-                ReadResourceRegion(frame, elixirRect, "Elixir", val => Elixir = val);
-                ReadResourceRegion(frame, darkElixirRect, "DarkElixir", val => DarkElixir = val);
-                ReadResourceRegion(frame, gemsRect, "Gems", val => Gems = val);
-
                 string builderAvailable = string.Empty;
                 string builderTotal = string.Empty;
-                ReadResourceRegion(frame, builderAvailableRect, "BuilderAvailable", null,
+                ReadResourceRegion(frame, BuilderAvailableRect, "BuilderAvailable", null,
                     text => builderAvailable = text, model: "coc-Builders");
-                ReadResourceRegion(frame, builderTotalRect, "BuilderTotal", null,
+                ReadResourceRegion(frame, BuilderTotalRect, "BuilderTotal", null,
                     text => builderTotal = text, model: "coc-Builders");
                 BuilderText = builderAvailable.Length > 0 && builderTotal.Length > 0
                     ? $"{builderAvailable}/{builderTotal}"
                     : builderAvailable;
 
-                Cv2.Rectangle(frame, goldRect, new Scalar(0, 255, 255), 2);       // Gold - vàng
-                Cv2.Rectangle(frame, elixirRect, new Scalar(255, 0, 255), 2);     // Elixir - hồng
-                Cv2.Rectangle(frame, darkElixirRect, new Scalar(128, 0, 128), 2); // DE - tím
-                Cv2.Rectangle(frame, gemsRect, new Scalar(0, 255, 0), 2);         // Gems - xanh lá
-                Cv2.Rectangle(frame, builderAvailableRect, new Scalar(255, 0, 0), 2);
-                Cv2.Rectangle(frame, builderTotalRect, new Scalar(255, 0, 0), 2);
+                Cv2.Rectangle(frame, GoldRect, new Scalar(0, 255, 255), 2);       // Gold - vàng
+                Cv2.Rectangle(frame, ElixirRect, new Scalar(255, 0, 255), 2);     // Elixir - hồng
+                Cv2.Rectangle(frame, DarkElixirRect, new Scalar(128, 0, 128), 2); // DE - tím
+                Cv2.Rectangle(frame, GemsRect, new Scalar(0, 255, 0), 2);         // Gems - xanh lá
+                Cv2.Rectangle(frame, BuilderAvailableRect, new Scalar(255, 0, 0), 2);
+                Cv2.Rectangle(frame, BuilderTotalRect, new Scalar(255, 0, 0), 2);
 
                 string debugPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug_all_resources.png");
                 Cv2.ImWrite(debugPath, frame);
@@ -728,13 +995,18 @@ public partial class MainViewModel : ObservableObject
         string formatted = $"[{DateTime.Now:HH:mm:ss}] {msg}";
         _logger.Info(msg);
 
-        if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
+        // FIX-CRASH: in ra console để theo dõi khi chạy app bằng terminal.
+        Console.WriteLine(formatted);
+
+        // ObservableCollection chỉ được sửa trên UI thread.
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
         {
-            _ = dispatcher.InvokeAsync(() => LogMessages.Insert(0, formatted));
+            LogMessages.Insert(0, formatted);
         }
         else
         {
-            LogMessages.Insert(0, formatted);
+            _ = dispatcher.InvokeAsync(() => LogMessages.Insert(0, formatted));
         }
     }
 }
