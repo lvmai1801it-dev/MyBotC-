@@ -1,14 +1,14 @@
 # 🚀 MYBOT C# WPF - PROJECT PROGRESS & CONTEXT
 
-> **Cập nhật lần cuối:** Sau Task T7.27 (Nối ADB Capture vào nút Test Capture)
-> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T7.25, T7.26 và T7.27.
+> **Cập nhật lần cuối:** Sau Task T7.28 (UI State Matrix - Bind FSM vào Bottom Panel)
+> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T7.25, T7.26, T7.27 và T7.28.
 > **Tổng số Tests:** 111/111 PASS (108 Core + 1 CoC + 1 Integration + 1 UI).
-> **Commit gần nhất:** xem `git log -1` — `feat(T7.27): wire ADB capture backend to UI Test Capture button`.
+> **Commit gần nhất:** xem `git log -1` — `feat(T7.28): wire UI State Matrix to FSM buttons`.
 
 ## 1. TỔNG QUAN TIẾN ĐỘ
 - **Ngôn ngữ:** C# 12 / .NET 8 / WPF / MVVM (CommunityToolkit).
 - **Testing:** xUnit + FluentAssertions + Moq.
-- **Đã hoàn thành:** ~32 tasks / 148 tasks (~22%).
+- **Đã hoàn thành:** ~33 tasks / 148 tasks (~22%).
 - **Kiến trúc:** Clean Architecture, SOLID, Test-first.
 
 ## 2. CẤU TRÚC THƯ MỤC HIỆN TẠI
@@ -34,6 +34,7 @@
 7. **Config ↔ UI (T7.25):** Tab Bot bind 2 chiều với `IConfigManager`; `AppConfig` có thêm `ActiveLanguage`, `DeleteLogsDays`, `EmulatorType`, `AdbPort`, `EnableDebugLog`; nút **Save Config / Load Config** ghi/đọc `config.json` và ghi nhật ký.
 8. **Dark Theme (T7.26):** `Themes/DarkTheme.xaml` gom brush + implicit styles (TextBox, ComboBox có template dropdown tối, CheckBox, TabControl/TabItem có gạch chân Accent, Button). Nút Start/Stop/Pause và màu Gold/Elixir/DE đã dùng brush chung.
 9. **ADB Capture ↔ UI (T7.27):** Nút **Test Capture** gọi `AdbScreencapCaptureBackend` qua `IProcessRunner`; serial lấy từ `127.0.0.1:{AdbPort}` trong config; lưu `screenshot.png` cạnh file exe và tự mở bằng shell. `Startup` đã đăng ký `IProcessRunner`.
+10. **UI State Matrix (T7.28):** `CurrentState` là `[ObservableProperty]` + `[NotifyPropertyChangedFor]`; Start/Stop/Pause/Resume bật/tắt và đổi chữ theo FSM; chuỗi thật `Starting(2s) → Searching`, `Pausing(1s) → Paused`, `Resuming(1s) → Searching`, `Stopping(1s) → Idle`. Nút disabled mờ 50%.
 
 ## 4. BÀI HỌC KINH NGHIỆM (LESSONS LEARNED)
 - **Flaky Tests:** Không dùng `Thread.Sleep`, luôn dùng `ITimeProvider`.
