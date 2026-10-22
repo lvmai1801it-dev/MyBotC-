@@ -1,12 +1,16 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MyBot.Core.Abstractions;
+using MyBot.Core.Capture;
 using MyBot.Core.Config;
 using MyBot.Core.FSM;
+using OpenCvSharp;
 
 namespace MyBot.UI.ViewModels;
 
@@ -30,6 +34,10 @@ public partial class MainViewModel : ObservableObject
     private readonly BotStateMachine _fsm;
     private readonly IBotLogger _logger;
     private readonly IConfigManager _configManager;
+    private readonly IProcessRunner _processRunner;
+
+    // T7.27: Đường dẫn ADB mặc định của MEmu (có thể chuyển sang ConfigManager sau).
+    private readonly string _adbPath = @"F:\Microvirt\MEmu\adb.exe";
 
     [ObservableProperty]
     private string _statusText = "Idle";
@@ -163,11 +171,13 @@ public partial class MainViewModel : ObservableObject
     /// <param name="fsm">Máy trạng thái hữu hạn của Bot.</param>
     /// <param name="logger">Logger ghi nhận sự kiện.</param>
     /// <param name="configManager">Bộ quản lý cấu hình (config.json).</param>
-    public MainViewModel(BotStateMachine fsm, IBotLogger logger, IConfigManager configManager)
+    /// <param name="processRunner">Bộ chạy tiến trình dùng cho ADB.</param>
+    public MainViewModel(BotStateMachine fsm, IBotLogger logger, IConfigManager configManager, IProcessRunner processRunner)
     {
         _fsm = fsm ?? throw new ArgumentNullException(nameof(fsm));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _configManager = configManager ?? throw new ArgumentNullException(nameof(configManager));
+        _processRunner = processRunner ?? throw new ArgumentNullException(nameof(processRunner));
 
         _statusText = _fsm.CurrentState.ToString();
 
@@ -307,6 +317,61 @@ public partial class MainViewModel : ObservableObject
     private void EditDropOrder()
     {
         AddLog($"Opening drop order editor for: {SelectedStrategyFile}");
+    }
+
+    /// <summary>
+    /// Chụp thử một khung hình từ MEmu qua ADB, lưu thành screenshot.png và mở ảnh.
+    /// </summary>
+    [RelayCommand]
+    private async Task TestCaptureAsync()
+    {
+        AddLog("Đang kết nối tới MEmu để chụp ảnh...");
+
+        (bool Success, string Message, string? Path) result;
+        try
+        {
+            result = await Task.Run(() =>
+            {
+                using var capture = new AdbScreencapCaptureBackend(_adbPath, _processRunner);
+
+                var target = new EmulatorTarget(AdbSerial: $"127.0.0.1:{AdbPort}");
+                if (!capture.Initialize(target))
+                {
+                    return (false, "LỖI: Không thể kết nối ADB tới MEmu. Hãy kiểm tra giả lập đã bật chưa.", (string?)null);
+                }
+
+                using var mat = capture.GrabFrame();
+                if (mat.Empty())
+                {
+                    return (false, "LỖI: Chụp ảnh thất bại (Mat rỗng).", (string?)null);
+                }
+
+                string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "screenshot.png");
+                if (!Cv2.ImWrite(path, mat))
+                {
+                    return (false, $"LỖI: Không ghi được file ảnh tại {path}.", (string?)null);
+                }
+
+                return (true, $"Chụp thành công: {mat.Width}x{mat.Height}. Đã lưu tại {path}", (string?)path);
+            });
+        }
+        catch (Exception ex)
+        {
+            AddLog($"LỖI: {ex.Message}");
+            return;
+        }
+
+        AddLog(result.Message);
+        if (!result.Success || result.Path is null) return;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(result.Path) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            AddLog($"Không mở được ảnh: {ex.Message}");
+        }
     }
 
     /// <summary>

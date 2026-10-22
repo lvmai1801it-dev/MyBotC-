@@ -87,7 +87,7 @@
                               Style="{StaticResource DarkCheck}" />
 
                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                        <Button Content="Test Capture" Style="{StaticResource ActionBtn}" />
+                        <Button Content="Test Capture" Command="{Binding TestCaptureCommand}" Style="{StaticResource ActionBtn}" />
                         <Button Content="Test OCR" Style="{StaticResource ActionBtn}" />
                     </StackPanel>
                 </StackPanel>

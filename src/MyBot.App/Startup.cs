@@ -29,6 +29,9 @@ public static class Startup
         // Đăng ký IConfigManager
         services.AddSingleton<IConfigManager>(new ConfigManager("config.json", "config-schema.json"));
 
+        // T7.27: Bộ chạy tiến trình dùng cho ADB capture
+        services.AddSingleton<IProcessRunner, ProcessRunner>();
+
         // Cấu hình Serilog
         var logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
         Directory.CreateDirectory(logDirectory); // Đảm bảo thư mục tồn tại
