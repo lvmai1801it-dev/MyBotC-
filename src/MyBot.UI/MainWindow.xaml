@@ -3,7 +3,6 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:viewmodels="clr-namespace:MyBot.UI.ViewModels"
         xmlns:views="clr-namespace:MyBot.UI.Views"
         mc:Ignorable="d"
         Title="MyBot.run v1.0"
@@ -55,11 +54,12 @@
             </StackPanel>
         </Grid>
 
-        <!-- Row 1: Content Area (Log Tab) -->
+        <!-- Row 1: Content Area (6 Tabs) -->
         <TabControl Grid.Row="1"
                     Background="#1E1E1E"
                     BorderBrush="#2D2D30"
                     BorderThickness="0,1,0,0">
+            <!-- 1. Log Tab -->
             <TabItem Header="Log"
                      Background="#252526"
                      Foreground="White">
@@ -71,6 +71,66 @@
                          BorderThickness="0"
                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
                          ScrollViewer.VerticalScrollBarVisibility="Auto" />
+            </TabItem>
+
+            <!-- 2. Village Tab -->
+            <TabItem Header="Village"
+                     Background="#252526"
+                     Foreground="White">
+                <views:VillageTabView />
+            </TabItem>
+
+            <!-- 3. Attack Plan Tab -->
+            <TabItem Header="Attack Plan"
+                     Background="#252526"
+                     Foreground="White">
+                <views:AttackTabView />
+            </TabItem>
+
+            <!-- 4. Bot Config Tab (Placeholder) -->
+            <TabItem Header="Bot"
+                     Background="#252526"
+                     Foreground="White">
+                <Grid Background="#1E1E1E">
+                    <TextBlock Text="Bot Config (Coming Soon)"
+                               Foreground="#888888"
+                               FontSize="16"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                </Grid>
+            </TabItem>
+
+            <!-- 5. Stats Tab (Placeholder) -->
+            <TabItem Header="Stats"
+                     Background="#252526"
+                     Foreground="White">
+                <Grid Background="#1E1E1E">
+                    <TextBlock Text="Stats (Coming Soon)"
+                               Foreground="#888888"
+                               FontSize="16"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                </Grid>
+            </TabItem>
+
+            <!-- 6. About Tab (Placeholder) -->
+            <TabItem Header="About"
+                     Background="#252526"
+                     Foreground="White">
+                <Grid Background="#1E1E1E">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="MyBot C# WPF v1.0"
+                                   Foreground="White"
+                                   FontWeight="Bold"
+                                   FontSize="18"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,8" />
+                        <TextBlock Text="Modern C# port of MyBot with Anti-Ban &amp; FSM"
+                                   Foreground="#888888"
+                                   FontSize="12"
+                                   HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
             </TabItem>
         </TabControl>
 

@@ -76,6 +76,65 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private HeroState _dukeState = HeroState.Gray;
 
+    // Cấu hình Tab Village
+    [ObservableProperty]
+    private bool _enableCollector = true;
+
+    [ObservableProperty]
+    private bool _enableWallUpgrade = true;
+
+    [ObservableProperty]
+    private string _minGoldReserve = "100000";
+
+    [ObservableProperty]
+    private string _telegramToken = "";
+
+    [ObservableProperty]
+    private bool _clearObstacles = true;
+
+    [ObservableProperty]
+    private string _keepBuilders = "1";
+
+    [ObservableProperty]
+    private bool _requestCc = true;
+
+    [ObservableProperty]
+    private string _requestMsg = "any";
+
+    [ObservableProperty]
+    private ObservableCollection<string> _wallResourceOptions = new() { "Gold", "Elixir", "Both" };
+
+    [ObservableProperty]
+    private string _selectedWallResource = "Both";
+
+    // Cấu hình Tab Attack
+    [ObservableProperty]
+    private bool _enableDeadbase = true;
+
+    [ObservableProperty]
+    private bool _enableLivebase = false;
+
+    [ObservableProperty]
+    private string _minGoldDB = "400000";
+
+    [ObservableProperty]
+    private string _minElixirDB = "400000";
+
+    [ObservableProperty]
+    private ObservableCollection<string> _algorithmOptions = new() { "Standard", "CSV Scripted" };
+
+    [ObservableProperty]
+    private string _selectedAlgorithm = "Standard";
+
+    [ObservableProperty]
+    private bool _requireHeroes = false;
+
+    [ObservableProperty]
+    private ObservableCollection<string> _strategyFiles = new() { "Barch_Standard.csv", "Goblin_Knife.csv", "Zap_Dragon.csv" };
+
+    [ObservableProperty]
+    private string _selectedStrategyFile = "Barch_Standard.csv";
+
     /// <summary>
     /// Khởi tạo ViewModel với máy trạng thái FSM và logger.
     /// </summary>
@@ -193,6 +252,24 @@ public partial class MainViewModel : ObservableObject
             _fsm.TransitionTo(BotState.Paused);
             AddLog("Bot Paused");
         }
+    }
+
+    /// <summary>
+    /// Bắn thông báo thử nghiệm qua Telegram.
+    /// </summary>
+    [RelayCommand]
+    private void TestNotify()
+    {
+        AddLog("Telegram test notification triggered.");
+    }
+
+    /// <summary>
+    /// Mở trình chỉnh sửa thứ tự thả quân.
+    /// </summary>
+    [RelayCommand]
+    private void EditDropOrder()
+    {
+        AddLog($"Opening drop order editor for: {SelectedStrategyFile}");
     }
 
     /// <summary>
