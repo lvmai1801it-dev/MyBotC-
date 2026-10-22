@@ -87,50 +87,25 @@
                 <views:AttackTabView />
             </TabItem>
 
-            <!-- 4. Bot Config Tab (Placeholder) -->
+            <!-- 4. Bot Config Tab -->
             <TabItem Header="Bot"
                      Background="#252526"
                      Foreground="White">
-                <Grid Background="#1E1E1E">
-                    <TextBlock Text="Bot Config (Coming Soon)"
-                               Foreground="#888888"
-                               FontSize="16"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center" />
-                </Grid>
+                <views:BotTabView />
             </TabItem>
 
-            <!-- 5. Stats Tab (Placeholder) -->
+            <!-- 5. Stats Tab -->
             <TabItem Header="Stats"
                      Background="#252526"
                      Foreground="White">
-                <Grid Background="#1E1E1E">
-                    <TextBlock Text="Stats (Coming Soon)"
-                               Foreground="#888888"
-                               FontSize="16"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center" />
-                </Grid>
+                <views:StatsTabView />
             </TabItem>
 
-            <!-- 6. About Tab (Placeholder) -->
+            <!-- 6. About Tab -->
             <TabItem Header="About"
                      Background="#252526"
                      Foreground="White">
-                <Grid Background="#1E1E1E">
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock Text="MyBot C# WPF v1.0"
-                                   Foreground="White"
-                                   FontWeight="Bold"
-                                   FontSize="18"
-                                   HorizontalAlignment="Center"
-                                   Margin="0,0,0,8" />
-                        <TextBlock Text="Modern C# port of MyBot with Anti-Ban &amp; FSM"
-                                   Foreground="#888888"
-                                   FontSize="12"
-                                   HorizontalAlignment="Center" />
-                    </StackPanel>
-                </Grid>
+                <views:AboutTabView />
             </TabItem>
         </TabControl>
 

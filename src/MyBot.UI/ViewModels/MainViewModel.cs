@@ -135,6 +135,23 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _selectedStrategyFile = "Barch_Standard.csv";
 
+    // Cấu hình Tab Bot
+    [ObservableProperty]
+    private string _selectedLanguage = "English";
+
+    [ObservableProperty]
+    private string _emulatorType = "MEmu";
+
+    [ObservableProperty]
+    private string _adbPort = "21503";
+
+    [ObservableProperty]
+    private bool _enableDebugLog = false;
+
+    // Tab Stats — Lịch sử trận đánh
+    [ObservableProperty]
+    private ObservableCollection<BattleRecord> _battleHistory = new();
+
     /// <summary>
     /// Khởi tạo ViewModel với máy trạng thái FSM và logger.
     /// </summary>
@@ -146,6 +163,16 @@ public partial class MainViewModel : ObservableObject
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         _statusText = _fsm.CurrentState.ToString();
+
+        // Mock data cho Stats DataGrid
+        BattleHistory = new ObservableCollection<BattleRecord>
+        {
+            new("14:01:22", "Deadbase", 412000, 389000, 12),
+            new("14:05:47", "Deadbase", 520000, 415000, 8),
+            new("14:10:03", "Livebase", 280000, 310000, -5),
+            new("14:14:18", "Deadbase", 610000, 570000, 15),
+            new("14:19:55", "Deadbase", 350000, 420000, 10),
+        };
 
         _fsm.StateChanged += (s, newState) =>
         {
