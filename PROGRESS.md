@@ -1,14 +1,14 @@
 # 🚀 MYBOT C# WPF - PROJECT PROGRESS & CONTEXT
 
-> **Cập nhật lần cuối:** Sau Task T4.8 (BaseClassifier - Phân loại căn cứ)
-> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1–T4.8, T7.25, T7.26, T7.27 và T7.28.
+> **Cập nhật lần cuối:** Sau Task T4.R (Refactor Phase 4 - Game Math Engine)
+> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1–T4.8, T4.R, T7.25, T7.26, T7.27 và T7.28.
 > **Tổng số Tests:** 156/156 PASS (153 Core + 1 CoC + 1 Integration + 1 UI).
-> **Commit gần nhất:** xem `git log -1` — `feat(T4.8): impl BaseClassifier for base type decision`.
+> **Commit gần nhất:** xem `git log -1` — `refactor(Phase4): add XML docs, format code, cleanup Game.CoC`.
 
 ## 1. TỔNG QUAN TIẾN ĐỘ
 - **Ngôn ngữ:** C# 12 / .NET 8 / WPF / MVVM (CommunityToolkit).
 - **Testing:** xUnit + FluentAssertions + Moq.
-- **Đã hoàn thành:** ~42 tasks / 148 tasks (~28%).
+- **Đã hoàn thành:** ~43 tasks / 148 tasks (~29%).
 - **Kiến trúc:** Clean Architecture, SOLID, Test-first.
 
 ## 2. CẤU TRÚC THƯ MỤC HIỆN TẠI
@@ -45,6 +45,7 @@
 17. **Euclidean Clusterer (T4.6):** `EuclideanClusterer.Cluster(points, maxDistance=20)` gom điểm theo greedy — giữ điểm đầu tiên của mỗi cụm, bỏ điểm cách cụm đã giữ <= ngưỡng; dùng cho phát hiện điểm mỏ (deadbase).
 18. **Storage Detector (T4.7):** `StorageDetector.HasFullStorage(frame, template)` trả false nếu frame/template null hoặc rỗng, ngược lại gọi `ITemplateMatcher.Find(..., 0.75)` và trả `match != null`.
 19. **Base Classifier (T4.8):** `BaseType` enum (Unknown/DeadBase/LiveBase/THOutside/ProgressBase) + `BaseClassifier.Classify(...)` ưu tiên THOutside → DeadBase (≥5 mỏ, kho cạn) → LiveBase (<5 mỏ, kho đầy) → ProgressBase (0 mỏ, kho cạn) → Unknown.
+20. **Phase 4 Refactor (T4.R):** `dotnet format` sạch; XML docs đầy đủ cho toàn bộ `MyBot.Game.CoC` (class/method/record params); không còn `Thread.Sleep`/anonymous type; phép chia tâm frame trong `RedAreaScanner` dùng `double`.
 
 ## 4. BÀI HỌC KINH NGHIỆM (LESSONS LEARNED)
 - **Flaky Tests:** Không dùng `Thread.Sleep`, luôn dùng `ITimeProvider`.
@@ -54,7 +55,7 @@
 - **FluentAssertions:** Dùng `.BeInRange(a,b)` thay vì `.BeBetween(a,b)`.
 
 ## 5. NHIỆM VỤ TIẾP THEO (TUẦN 2)
-- **Task ngay tiếp theo:** T4.R (refactor Phase 4: format + XML docs + cleanup) — sau đó ghép T4.1–T4.8 thành module chọn điểm thả quân an toàn.
+- **Task ngay tiếp theo:** Ghép T4.1–T4.8 thành module chọn điểm thả quân an toàn (loại vùng đỏ, random trong diamond, deadbase detection), hoặc Phase 3 — T3.2/T3.3 (tiền xử lý ảnh).
 - **Đã xong (T7.25):** Nối `ConfigManager` vào Tab Bot để Lưu/Đọc `config.json`.
 - **Mục tiêu tuần 2:** Bot có thể chụp ảnh MEmu, nhận diện màn hình Làng (Main Village) và hiển thị trạng thái lên UI.
 

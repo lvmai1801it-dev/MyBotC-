@@ -28,8 +28,8 @@ public class RedAreaScanner
         using Mat points = new();
         Cv2.FindNonZero(mask, points);
 
-        int centerX = frame.Width / 2;
-        int centerY = frame.Height / 2;
+        double centerX = frame.Width / 2.0;
+        double centerY = frame.Height / 2.0;
 
         for (int i = 0; i < points.Rows; i++)
         {
