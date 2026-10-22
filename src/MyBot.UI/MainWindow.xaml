@@ -14,11 +14,47 @@
         Background="#1E1E1E">
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="25" />
+            <RowDefinition Height="30" />
             <RowDefinition Height="*" />
             <RowDefinition Height="115" />
         </Grid.RowDefinitions>
 
+        <!-- Row 0: Custom Title Bar -->
+        <Grid Grid.Row="0"
+              Background="#2D2D30"
+              MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0"
+                       Text="MyBot.run v1.0 (C#)"
+                       FontSize="12"
+                       Foreground="White"
+                       VerticalAlignment="Center"
+                       Margin="10,0,0,0" />
+
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal">
+                <Button Width="45"
+                        Height="30"
+                        Background="Transparent"
+                        Foreground="White"
+                        BorderThickness="0"
+                        Content="—"
+                        Click="BtnMinimize_Click" />
+                <Button Width="45"
+                        Height="30"
+                        Background="#E81123"
+                        Foreground="White"
+                        BorderThickness="0"
+                        Content="✕"
+                        Click="BtnClose_Click" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Row 1: Content Area -->
         <TextBlock Grid.Row="1"
                    Text="MyBot C# WPF - Initializing..."
                    FontSize="24"
