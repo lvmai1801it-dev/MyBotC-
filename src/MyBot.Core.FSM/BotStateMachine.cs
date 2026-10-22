@@ -9,7 +9,7 @@ public class BotStateMachine
     private BotState _currentState = BotState.Uninitialized;
 
     public BotState CurrentState => _currentState;
-    
+
     // Sự kiện phát ra khi trạng thái thay đổi (để UI hoặc Watchdog bắt tín hiệu)
     public event EventHandler<BotState>? StateChanged;
 
@@ -31,7 +31,7 @@ public class BotStateMachine
 
         _logger.Info($"STATE: {_currentState} -> {newState}");
         _currentState = newState;
-        
+
         // Kích hoạt sự kiện
         StateChanged?.Invoke(this, newState);
     }

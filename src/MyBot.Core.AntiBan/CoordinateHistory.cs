@@ -4,28 +4,52 @@ using System.Linq;
 
 namespace MyBot.Core.AntiBan;
 
+/// <summary>
+/// Ghi nhớ các điểm click gần đây và sinh toạ độ mới đủ xa các điểm cũ
+/// nhằm tránh việc bot lặp lại cùng một vị trí click.
+/// </summary>
 public class CoordinateHistory
 {
+    /// <summary>Số điểm gần nhất được lưu trong lịch sử.</summary>
     public const int HistorySize = 5;
+
+    /// <summary>Khoảng cách tối thiểu (pixel) giữa điểm mới và các điểm cũ.</summary>
     public const double MinDistancePx = 4.0;
+
+    /// <summary>Số lần thử tối đa để tìm được điểm đủ xa.</summary>
     public const int MaxRetries = 10;
 
     private readonly BoundingBoxClick _box;
     private readonly Queue<(int X, int Y)> _history = new();
 
+    /// <summary>Khởi tạo với bộ sinh toạ độ mặc định.</summary>
     public CoordinateHistory() : this(new BoundingBoxClick()) { }
 
+    /// <summary>Khởi tạo với seed cố định để tái lập chuỗi toạ độ.</summary>
+    /// <param name="seed">Seed khởi tạo bộ sinh số ngẫu nhiên.</param>
     public CoordinateHistory(int seed) : this(new BoundingBoxClick(seed)) { }
 
+    /// <summary>Khởi tạo với bộ sinh toạ độ do caller cung cấp.</summary>
+    /// <param name="box">Bộ sinh toạ độ click trong hộp.</param>
     public CoordinateHistory(BoundingBoxClick box)
     {
         _box = box ?? throw new ArgumentNullException(nameof(box));
     }
 
+    /// <summary>Số điểm hiện có trong lịch sử.</summary>
     public int Count => _history.Count;
 
+    /// <summary>Danh sách các điểm click gần đây (cũ nhất trước).</summary>
     public IReadOnlyList<(int X, int Y)> RecentPoints => _history.ToList();
 
+    /// <summary>
+    /// Sinh toạ độ click mới trong hộp, đảm bảo cách xa các điểm đã ghi nhận trước đó.
+    /// </summary>
+    /// <param name="x">Toạ độ X góc trên-trái của hộp.</param>
+    /// <param name="y">Toạ độ Y góc trên-trái của hộp.</param>
+    /// <param name="width">Chiều rộng hộp.</param>
+    /// <param name="height">Chiều cao hộp.</param>
+    /// <returns>Toạ độ (X, Y) mới và đã được ghi vào lịch sử.</returns>
     public (int X, int Y) GetNextClick(int x, int y, int width, int height)
     {
         (int X, int Y) fallback = default;
@@ -45,6 +69,7 @@ public class CoordinateHistory
         return fallback;
     }
 
+    /// <summary>Xoá toàn bộ lịch sử điểm click đã ghi nhận.</summary>
     public void Clear()
     {
         _history.Clear();

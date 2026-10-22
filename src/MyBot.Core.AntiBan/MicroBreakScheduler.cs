@@ -5,6 +5,10 @@ using MyBot.Core.Abstractions;
 
 namespace MyBot.Core.AntiBan;
 
+/// <summary>
+/// Lên lịch nghỉ giải lao ngẫu nhiên sau một số trận đánh nhất định,
+/// mô phỏng thói quen nghỉ ngơi của người chơi thật.
+/// </summary>
 public class MicroBreakScheduler
 {
     private readonly ITimeProvider _time;
@@ -21,15 +25,38 @@ public class MicroBreakScheduler
     private bool _onBreak;
     private bool _isBreaking;
 
+    /// <summary>Khởi tạo với cấu hình mặc định (nghỉ sau 15-25 trận, nghỉ 5-15 phút).</summary>
+    /// <param name="time">Nguồn thời gian dùng cho việc chờ.</param>
+    /// <param name="logger">Logger ghi nhận sự kiện nghỉ.</param>
     public MicroBreakScheduler(ITimeProvider time, IBotLogger logger)
         : this(time, logger, 15, 25, 5, 15, new Random()) { }
 
+    /// <summary>Khởi tạo với cấu hình mặc định và seed cố định để tái lập lịch nghỉ.</summary>
+    /// <param name="time">Nguồn thời gian dùng cho việc chờ.</param>
+    /// <param name="logger">Logger ghi nhận sự kiện nghỉ.</param>
+    /// <param name="seed">Seed khởi tạo bộ sinh số ngẫu nhiên.</param>
     public MicroBreakScheduler(ITimeProvider time, IBotLogger logger, int seed)
         : this(time, logger, 15, 25, 5, 15, new Random(seed)) { }
 
+    /// <summary>Khởi tạo với cấu hình số trận và thời lượng nghỉ tuỳ chỉnh, dùng seed cố định.</summary>
+    /// <param name="time">Nguồn thời gian dùng cho việc chờ.</param>
+    /// <param name="logger">Logger ghi nhận sự kiện nghỉ.</param>
+    /// <param name="minRaids">Số trận tối thiểu trước khi nghỉ.</param>
+    /// <param name="maxRaids">Số trận tối đa trước khi nghỉ.</param>
+    /// <param name="minDurationMin">Thời lượng nghỉ tối thiểu (phút).</param>
+    /// <param name="maxDurationMin">Thời lượng nghỉ tối đa (phút).</param>
+    /// <param name="seed">Seed khởi tạo bộ sinh số ngẫu nhiên.</param>
     public MicroBreakScheduler(ITimeProvider time, IBotLogger logger, int minRaids, int maxRaids, int minDurationMin, int maxDurationMin, int seed)
         : this(time, logger, minRaids, maxRaids, minDurationMin, maxDurationMin, new Random(seed)) { }
 
+    /// <summary>Khởi tạo đầy đủ với cấu hình tuỳ chỉnh và nguồn ngẫu nhiên do caller cung cấp.</summary>
+    /// <param name="time">Nguồn thời gian dùng cho việc chờ.</param>
+    /// <param name="logger">Logger ghi nhận sự kiện nghỉ.</param>
+    /// <param name="minRaids">Số trận tối thiểu trước khi nghỉ.</param>
+    /// <param name="maxRaids">Số trận tối đa trước khi nghỉ.</param>
+    /// <param name="minDurationMin">Thời lượng nghỉ tối thiểu (phút).</param>
+    /// <param name="maxDurationMin">Thời lượng nghỉ tối đa (phút).</param>
+    /// <param name="rng">Bộ sinh số ngẫu nhiên.</param>
     public MicroBreakScheduler(ITimeProvider time, IBotLogger logger, int minRaids, int maxRaids, int minDurationMin, int maxDurationMin, Random rng)
     {
         _time = time ?? throw new ArgumentNullException(nameof(time));
@@ -56,12 +83,20 @@ public class MicroBreakScheduler
         _nextBreakAtRaid = _rng.Next(_minRaids, _maxRaids + 1);
     }
 
+    /// <summary>Số trận đã đánh kể từ lần nghỉ gần nhất.</summary>
     public int RaidCountSinceBreak => _raidCountSinceBreak;
+
+    /// <summary>Số trận mà tại đó lần nghỉ tiếp theo sẽ được kích hoạt.</summary>
     public int NextBreakAtRaid => _nextBreakAtRaid;
+
+    /// <summary>Cho biết bot có đang trong trạng thái nghỉ hay không.</summary>
     public bool IsOnBreak => _onBreak;
 
+    /// <summary>Kiểm tra xem đã đến lúc nghỉ giải lao hay chưa.</summary>
+    /// <returns>True nếu đang nghỉ hoặc đã đạt số trận ngưỡng.</returns>
     public bool ShouldBreak() => _onBreak || _raidCountSinceBreak >= _nextBreakAtRaid;
 
+    /// <summary>Ghi nhận đã hoàn thành thêm một trận đánh.</summary>
     public void RecordRaid()
     {
         _raidCountSinceBreak++;
@@ -72,6 +107,13 @@ public class MicroBreakScheduler
         }
     }
 
+    /// <summary>
+    /// Thực hiện nghỉ giải lao trong khoảng thời lượng ngẫu nhiên đã cấu hình,
+    /// sau đó đặt lại bộ đếm trận và lên lịch nghỉ kế tiếp.
+    /// </summary>
+    /// <param name="ct">Token huỷ tác vụ.</param>
+    /// <returns>Task hoàn tất khi kết thúc thời gian nghỉ.</returns>
+    /// <exception cref="InvalidOperationException">Ném ra nếu chưa đến lúc nghỉ.</exception>
     public async Task TakeBreakAsync(CancellationToken ct = default)
     {
         if (!ShouldBreak())

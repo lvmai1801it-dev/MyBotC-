@@ -1,6 +1,4 @@
 using System;
-using System.Diagnostics;
-using System.Threading;
 using OpenCvSharp;
 using MyBot.Core.Abstractions;
 
@@ -18,6 +16,15 @@ public class ActionContractExecutor
     private readonly ExecutionMode _mode;
     private readonly int _defaultMaxRetries;
 
+    /// <summary>
+    /// Khởi tạo executor với các backend cần thiết cho vòng lặp Detect-Act-Verify.
+    /// </summary>
+    /// <param name="capture">Backend chụp khung hình.</param>
+    /// <param name="input">Backend gửi sự kiện chạm/click.</param>
+    /// <param name="logger">Logger ghi nhận cảnh báo và thất bại.</param>
+    /// <param name="time">Nguồn thời gian dùng cho việc chờ giữa các lần thăm dò.</param>
+    /// <param name="mode">Chế độ thực thi (Live kiểm tra hình ảnh, Replay chỉ gửi input).</param>
+    /// <param name="defaultMaxRetries">Số lần thử lại mặc định khi không truyền tham số.</param>
     public ActionContractExecutor(
         ICaptureBackend capture,
         IInputBackend input,

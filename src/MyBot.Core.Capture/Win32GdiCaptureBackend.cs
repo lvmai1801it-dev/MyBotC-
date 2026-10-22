@@ -7,12 +7,16 @@ using MyBot.Core.Abstractions;
 
 namespace MyBot.Core.Capture;
 
+/// <summary>
+/// Backend chụp màn hình cửa sổ giả lập trên Windows qua GDI (BitBlt vào bitmap tương thích),
+/// chỉ lấy vùng Client Area và giải phóng toàn bộ GDI handle sau mỗi lần chụp.
+/// </summary>
 public class Win32GdiCaptureBackend : ICaptureBackend
 {
     [DllImport("user32.dll")] private static extern IntPtr GetDC(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
     [DllImport("user32.dll")] private static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
-    
+
     [DllImport("gdi32.dll")] private static extern IntPtr CreateCompatibleDC(IntPtr hDC);
     [DllImport("gdi32.dll")] private static extern IntPtr CreateCompatibleBitmap(IntPtr hDC, int nWidth, int nHeight);
     [DllImport("gdi32.dll")] private static extern IntPtr SelectObject(IntPtr hDC, IntPtr hObject);
@@ -30,8 +34,12 @@ public class Win32GdiCaptureBackend : ICaptureBackend
     private int _height;
     private bool _isRunning;
 
+    /// <summary>Cho biết backend đã sẵn sàng chụp hay chưa.</summary>
     public bool IsRunning => _isRunning;
 
+    /// <summary>Lấy kích thước vùng Client Area của cửa sổ đích.</summary>
+    /// <param name="target">Thông tin thiết bị đích (bắt buộc có WindowHandle).</param>
+    /// <returns>True nếu lấy được kích thước hợp lệ.</returns>
     public bool Initialize(EmulatorTarget target)
     {
         if (target.WindowHandle == null || target.WindowHandle == IntPtr.Zero)
@@ -41,7 +49,7 @@ public class Win32GdiCaptureBackend : ICaptureBackend
 
         // Tự động lấy kích thước thực tế của vùng Client Area (không có title bar)
         if (!GetClientRect(_hWnd, out RECT rect)) return false;
-        
+
         _width = rect.Right - rect.Left;
         _height = rect.Bottom - rect.Top;
 
@@ -51,9 +59,11 @@ public class Win32GdiCaptureBackend : ICaptureBackend
         return true;
     }
 
+    /// <summary>Chụp vùng Client Area của cửa sổ và trả về dưới dạng <see cref="Mat"/>.</summary>
+    /// <returns>Khung hình hiện tại, hoặc Mat rỗng nếu chưa sẵn sàng/lỗi.</returns>
     public Mat GrabFrame()
     {
-        if (!_isRunning || _hWnd == IntPtr.Zero) 
+        if (!_isRunning || _hWnd == IntPtr.Zero)
             return new Mat();
 
         // Lấy DC của vùng Client Area (chỉ lấy phần game, không lấy viền)
@@ -86,5 +96,6 @@ public class Win32GdiCaptureBackend : ICaptureBackend
         }
     }
 
+    /// <summary>Đánh dấu backend ngừng hoạt động.</summary>
     public void Dispose() => _isRunning = false;
 }

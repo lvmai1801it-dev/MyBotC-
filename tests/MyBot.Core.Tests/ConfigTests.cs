@@ -23,7 +23,7 @@ public class ConfigTests
     public void Load_Should_Create_Default_Config_If_Not_Exists()
     {
         var manager = new ConfigManager(_testConfigPath, _testSchemaPath);
-        
+
         var config = manager.Load();
 
         config.Should().NotBeNull();
@@ -42,7 +42,7 @@ public class ConfigTests
         }");
 
         var manager = new ConfigManager(_testConfigPath, _testSchemaPath);
-        
+
         // Act & Assert
         Action act = () => manager.Load();
         act.Should().Throw<ConfigValidationException>()
@@ -66,7 +66,7 @@ public class ConfigTests
         config.ConfigVersion.Should().Be("2.0");
         config.Emulator.Type.Should().Be("MEmu");
         config.Emulator.AdbPort.Should().Be(21503);
-        
+
         // File vật lý phải được ghi đè lên v2.0
         File.ReadAllText(_testConfigPath).Should().Contain("\"config_version\": \"2.0\"");
     }
@@ -79,7 +79,7 @@ public class ConfigTests
         File.WriteAllText(_testConfigPath, @"{ ""emulator"": { ""type"": ""LDPlayer"" ");
 
         var manager = new ConfigManager(_testConfigPath, _testSchemaPath);
-        
+
         // Act & Assert
         Action act = () => manager.Load();
         act.Should().Throw<ConfigValidationException>()

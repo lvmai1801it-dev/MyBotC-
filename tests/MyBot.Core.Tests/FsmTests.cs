@@ -41,15 +41,15 @@ public class FsmTests
     {
         // Dùng Mock ITimeProvider để ép thời gian trôi qua
         var timeProviderMock = new Mock<ITimeProvider>();
-        
+
         // Setup trước khi start để khi Task.Run chạy sẽ hoàn thành ngay
         timeProviderMock.Setup(t => t.DelayAsync(5000, It.IsAny<CancellationToken>()))
                         .Returns(Task.CompletedTask);
 
         var watchdog = new StateWatchdog(timeProviderMock.Object);
         var tcs = new TaskCompletionSource<BotState>();
-        
-        watchdog.WatchdogTimeout += (sender, state) => 
+
+        watchdog.WatchdogTimeout += (sender, state) =>
         {
             tcs.TrySetResult(state);
         };

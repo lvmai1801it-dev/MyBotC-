@@ -48,7 +48,7 @@ public static class EmulatorFinder
             {
                 results.Add(new EmulatorWindow(emuType, className, title, hWnd));
             }
-            
+
             return true;
         }, IntPtr.Zero);
 
@@ -61,7 +61,7 @@ public static class EmulatorFinder
         string? renderClassName = emulatorType switch
         {
             "LDPlayer" => "RenderWindow",
-            "MEmu" => "RenderWindow", 
+            "MEmu" => "RenderWindow",
             "BlueStacks" => "subWin",
             "Nox" => "subWin",
             _ => null
@@ -70,6 +70,6 @@ public static class EmulatorFinder
         if (renderClassName == null) return mainHandle;
 
         IntPtr child = FindWindowEx(mainHandle, IntPtr.Zero, renderClassName, null);
-        return child != IntPtr.Zero ? child : mainHandle; 
+        return child != IntPtr.Zero ? child : mainHandle;
     }
 }

@@ -3,19 +3,47 @@ using System.Collections.Generic;
 
 namespace MyBot.Core.AntiBan;
 
+/// <summary>
+/// Sinh quỹ đạo di chuyển chuột dạng đường cong Bezier bậc 3, có xác suất vượt đích (overshoot)
+/// để giả lập chuyển động tay người.
+/// </summary>
 public class BezierPath
 {
+    /// <summary>Số điểm mặc định trên quỹ đạo.</summary>
     public static readonly int DefaultNumPoints = 20;
+
+    /// <summary>Xác suất mặc định xảy ra overshoot.</summary>
     public static readonly double DefaultOvershootChance = 0.08;
+
+    /// <summary>Khoảng cách overshoot nhỏ nhất (pixel).</summary>
     public static readonly double OvershootMinPx = 3.0;
+
+    /// <summary>Khoảng cách overshoot lớn nhất (pixel).</summary>
     public static readonly double OvershootMaxPx = 8.0;
 
     private readonly Random _rng;
 
+    /// <summary>Khởi tạo với nguồn ngẫu nhiên mặc định.</summary>
     public BezierPath() : this(new Random()) { }
+
+    /// <summary>Khởi tạo với seed cố định để tái lập quỹ đạo.</summary>
+    /// <param name="seed">Seed khởi tạo bộ sinh số ngẫu nhiên.</param>
     public BezierPath(int seed) : this(new Random(seed)) { }
+
+    /// <summary>Khởi tạo với nguồn ngẫu nhiên do caller cung cấp.</summary>
+    /// <param name="rng">Bộ sinh số ngẫu nhiên.</param>
     public BezierPath(Random rng) { _rng = rng ?? throw new ArgumentNullException(nameof(rng)); }
 
+    /// <summary>
+    /// Sinh danh sách điểm trên quỹ đạo Bezier từ điểm bắt đầu tới điểm kết thúc.
+    /// </summary>
+    /// <param name="x1">Tọa độ X điểm bắt đầu.</param>
+    /// <param name="y1">Tọa độ Y điểm bắt đầu.</param>
+    /// <param name="x2">Tọa độ X điểm kết thúc.</param>
+    /// <param name="y2">Tọa độ Y điểm kết thúc.</param>
+    /// <param name="numPoints">Số điểm cần sinh (tối thiểu 2).</param>
+    /// <param name="overshootChance">Xác suất vượt đích, trong khoảng [0, 1].</param>
+    /// <returns>Danh sách tọa độ (X, Y) theo thứ tự từ điểm đầu tới điểm cuối.</returns>
     public List<(int X, int Y)> Generate(
         int x1, int y1, int x2, int y2,
         int numPoints = 20,
@@ -90,6 +118,7 @@ public class BezierPath
         return result;
     }
 
+    /// <summary>Tính một điểm trên đường cong Bezier bậc 3 tại tham số t.</summary>
     private static (double X, double Y) Bezier(
         (double X, double Y) p0,
         (double X, double Y) p1,
@@ -98,8 +127,8 @@ public class BezierPath
         double t)
     {
         double u = 1.0 - t;
-        double x = u*u*u * p0.X + 3*u*u*t * p1.X + 3*u*t*t * p2.X + t*t*t * p3.X;
-        double y = u*u*u * p0.Y + 3*u*u*t * p1.Y + 3*u*t*t * p2.Y + t*t*t * p3.Y;
+        double x = u * u * u * p0.X + 3 * u * u * t * p1.X + 3 * u * t * t * p2.X + t * t * t * p3.X;
+        double y = u * u * u * p0.Y + 3 * u * u * t * p1.Y + 3 * u * t * t * p2.Y + t * t * t * p3.Y;
         return (x, y);
     }
 }

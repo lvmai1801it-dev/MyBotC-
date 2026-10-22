@@ -11,8 +11,8 @@ namespace MyBot.Core.ActionContract;
 /// <param name="TimeoutMs">Thời gian tối đa để điều kiện thay đổi được thỏa mãn (mặc định 800ms)</param>
 /// <param name="Description">Mô tả hành động để log</param>
 public record VisualAssertion(
-    Rect Region, 
-    Func<Mat, Mat, bool> VerifyFn, 
-    int TimeoutMs = 800, 
+    Rect Region,
+    Func<Mat, Mat, bool> VerifyFn,
+    int TimeoutMs = 800,
     string Description = "unspecified"
 );

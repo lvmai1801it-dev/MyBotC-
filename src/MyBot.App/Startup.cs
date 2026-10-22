@@ -27,11 +27,11 @@ public static class Startup
 
         // Lấy tạm TimeProvider ra để cấu hình Serilog
         var tempProvider = services.BuildServiceProvider().GetRequiredService<ITimeProvider>();
-        
+
         // Cấu hình Serilog
         var logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
         Directory.CreateDirectory(logDirectory); // Đảm bảo thư mục tồn tại
-        
+
         // T0.4.2 & T0.4.4: Serilog tự động nối ngày yyyyMMdd vào tiền tố bot-
         var logFilePath = Path.Combine(logDirectory, "bot-.log");
 

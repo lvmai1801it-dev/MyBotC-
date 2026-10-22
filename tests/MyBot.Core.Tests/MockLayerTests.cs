@@ -20,7 +20,7 @@ public class MockLayerTests
         mock.Swipe(10, 20, 30, 40, 500);
 
         mock.RecordedActions.Should().HaveCount(2);
-        
+
         mock.RecordedActions[0].Type.Should().Be("Tap");
         mock.RecordedActions[0].X1.Should().Be(100);
         mock.RecordedActions[0].Y1.Should().Be(200);
@@ -39,7 +39,7 @@ public class MockLayerTests
         // 1. Tạo thư mục tạm và 3 file ảnh trắng giả lập
         string tempDir = Path.Combine(Path.GetTempPath(), "MyBotMockTest");
         Directory.CreateDirectory(tempDir);
-        
+
         for (int i = 1; i <= 3; i++)
         {
             using var mat = new Mat(100, 100, MatType.CV_8UC3, Scalar.White);

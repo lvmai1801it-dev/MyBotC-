@@ -51,7 +51,7 @@ public class Program
         }
 
         Console.WriteLine($"\nĐã chạy xong {frameCount} frames.");
-        
+
         // 4. Kiểm tra xem Input có ghi nhận đủ không
         Console.WriteLine($"\n--- LỊCH SỬ CLICK (Mock Input) ---");
         Console.WriteLine($"Tổng số click: {input.RecordedActions.Count}");

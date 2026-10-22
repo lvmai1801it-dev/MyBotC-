@@ -15,17 +15,25 @@ public class AdbInputBackend : IInputBackend
     private string _adbSerial = string.Empty;
     private bool _isReady;
 
+    /// <summary>Khởi tạo với đường dẫn adb và bộ chạy tiến trình do caller cung cấp.</summary>
+    /// <param name="adbPath">Đường dẫn tới file thực thi adb.</param>
+    /// <param name="processRunner">Bộ chạy tiến trình dùng để gọi adb.</param>
     public AdbInputBackend(string adbPath, IProcessRunner processRunner)
     {
         _adbPath = adbPath;
         _processRunner = processRunner;
     }
 
+    /// <summary>Khởi tạo với đường dẫn adb (mặc định "adb" trong PATH).</summary>
+    /// <param name="adbPath">Đường dẫn tới file thực thi adb.</param>
     public AdbInputBackend(string adbPath = "adb")
         : this(adbPath, new ProcessRunner())
     {
     }
 
+    /// <summary>Kiểm tra kết nối adb tới thiết bị theo <c>target.AdbSerial</c>.</summary>
+    /// <param name="target">Thông tin thiết bị đích (bắt buộc có AdbSerial).</param>
+    /// <returns>True nếu thiết bị ở trạng thái "device".</returns>
     public bool Initialize(EmulatorTarget target)
     {
         if (string.IsNullOrWhiteSpace(target.AdbSerial))
@@ -45,6 +53,9 @@ public class AdbInputBackend : IInputBackend
         return _isReady;
     }
 
+    /// <summary>Gửi một lần chạm tại toạ độ chỉ định.</summary>
+    /// <param name="x">Toạ độ X.</param>
+    /// <param name="y">Toạ độ Y.</param>
     public void Tap(int x, int y)
     {
         if (!_isReady)
@@ -55,6 +66,12 @@ public class AdbInputBackend : IInputBackend
         RunAdbShell($"input tap {x} {y}");
     }
 
+    /// <summary>Gửi thao tác vuốt từ điểm đầu tới điểm cuối trong khoảng thời gian chỉ định.</summary>
+    /// <param name="x1">Toạ độ X điểm bắt đầu.</param>
+    /// <param name="y1">Toạ độ Y điểm bắt đầu.</param>
+    /// <param name="x2">Toạ độ X điểm kết thúc.</param>
+    /// <param name="y2">Toạ độ Y điểm kết thúc.</param>
+    /// <param name="durationMs">Thời gian vuốt (ms).</param>
     public void Swipe(int x1, int y1, int x2, int y2, int durationMs)
     {
         if (!_isReady)
@@ -77,6 +94,7 @@ public class AdbInputBackend : IInputBackend
         }
     }
 
+    /// <summary>Đánh dấu backend ngừng hoạt động.</summary>
     public void Dispose()
     {
         _isReady = false;

@@ -17,14 +17,14 @@ public class LoggingTests
         var testDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "test_logs");
         Directory.CreateDirectory(testDir);
         var testFilePath = Path.Combine(testDir, "bot_2024-10-21.log");
-        
+
         if (File.Exists(testFilePath)) File.Delete(testFilePath);
 
         var serilogCore = new LoggerConfiguration()
             .MinimumLevel.Debug()
             .WriteTo.File(testFilePath)
             .CreateLogger();
-            
+
         var botLogger = new SerilogBotLogger(serilogCore);
 
         // Act
@@ -51,10 +51,10 @@ public class LoggingTests
 
         // Chỉ định chỉ ghi từ mức Warning trở lên
         var serilogCore = new LoggerConfiguration()
-            .MinimumLevel.Warning() 
+            .MinimumLevel.Warning()
             .WriteTo.File(testFilePath)
             .CreateLogger();
-            
+
         var botLogger = new SerilogBotLogger(serilogCore);
 
         // Act

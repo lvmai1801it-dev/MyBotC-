@@ -9,7 +9,7 @@ public class StateWatchdog : IDisposable
 {
     private readonly ITimeProvider _timeProvider;
     private CancellationTokenSource? _cts;
-    
+
     public event EventHandler<BotState>? WatchdogTimeout;
 
     public StateWatchdog(ITimeProvider timeProvider)
@@ -21,7 +21,7 @@ public class StateWatchdog : IDisposable
     public void Start(BotState state, int timeoutMs)
     {
         Stop(); // Hủy bộ đếm cũ nếu có
-        
+
         if (timeoutMs <= 0) return; // Không giới hạn thời gian
 
         _cts = new CancellationTokenSource();
@@ -32,7 +32,7 @@ public class StateWatchdog : IDisposable
             try
             {
                 await _timeProvider.DelayAsync(timeoutMs, token);
-                
+
                 // Nếu chờ xong mà không bị hủy -> Timeout!
                 if (!token.IsCancellationRequested)
                 {

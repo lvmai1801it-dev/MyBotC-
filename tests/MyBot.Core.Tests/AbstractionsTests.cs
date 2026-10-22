@@ -24,7 +24,7 @@ public class AbstractionsTests
             // 1. Phải có ít nhất 2 method/property (bao gồm cả kế thừa từ IDisposable)
             var methods = type.GetMethods().Concat(type.GetProperties().Select(p => p.GetMethod!));
             methods.Count().Should().BeGreaterThanOrEqualTo(2, $"Interface {type.Name} không đủ method");
-            
+
             // 2. Không được có property setter (chỉ đọc - readonly)
             foreach (var prop in type.GetProperties())
             {
@@ -38,12 +38,12 @@ public class AbstractionsTests
     public void StateClassifier_ShouldTakeMatAndReturnEnum()
     {
         var method = typeof(IStateClassifier).GetMethod("Classify");
-        
+
         method.Should().NotBeNull();
-        
+
         // Tham số đầu vào phải là OpenCvSharp.Mat
         method!.GetParameters()[0].ParameterType.Should().Be(typeof(Mat));
-        
+
         // Kiểu trả về phải là Enum GameState (không phải string)
         method.ReturnType.Should().Be(typeof(GameState));
         method.ReturnType.IsEnum.Should().BeTrue();
