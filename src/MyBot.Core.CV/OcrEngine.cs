@@ -84,8 +84,8 @@ public class TesseractOcrEngine : IOcrEngine, IDisposable
     }
 
     /// <summary>
-    /// Tiền xử lý vùng ảnh cho OCR: Gray → Invert → Otsu để chữ sáng trên nền tối
-    /// thành chữ tối trên nền trắng (định dạng Tesseract ưu tiên).
+    /// Tiền xử lý vùng ảnh cho OCR font Supercell: Gray → phóng to 4x → Gaussian blur
+    /// → ngưỡng cố định 200 (chỉ giữ lõi trắng của chữ) → đảo màu để có chữ đen nền trắng.
     /// </summary>
     /// <param name="frame">Vùng ảnh BGR cần xử lý.</param>
     /// <returns>Ảnh nhị phân mới; người gọi chịu trách nhiệm dispose. Trả Mat rỗng nếu input rỗng.</returns>
@@ -101,11 +101,20 @@ public class TesseractOcrEngine : IOcrEngine, IDisposable
         using Mat gray = new();
         Cv2.CvtColor(frame, gray, ColorConversionCodes.BGR2GRAY);
 
-        using Mat inverted = new();
-        Cv2.BitwiseNot(gray, inverted);
+        // Phóng to trước khi threshold để nét chữ dày lên, Tesseract dễ đọc hơn.
+        using Mat resized = new();
+        Cv2.Resize(gray, resized, new Size(0, 0), 4.0, 4.0, InterpolationFlags.Cubic);
 
+        using Mat blurred = new();
+        Cv2.GaussianBlur(resized, blurred, new Size(3, 3), 0);
+
+        // Ngưỡng cố định: chỉ pixel rất sáng (lõi trắng) thành trắng;
+        // viền đen và nền vàng bị loại thành đen.
         var binary = new Mat();
-        Cv2.Threshold(inverted, binary, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+        Cv2.Threshold(blurred, binary, 200, 255, ThresholdTypes.Binary);
+
+        // Đảo màu: lõi chữ trắng → đen, nền → trắng (định dạng Tesseract ưu tiên).
+        Cv2.BitwiseNot(binary, binary);
         return binary;
     }
 

@@ -550,8 +550,8 @@ public partial class MainViewModel : ObservableObject
                     return;
                 }
 
-                // FIX-OCR-2: toạ độ vùng Vàng thực tế trên khung hình MEmu.
-                var goldRect = new OpenCvSharp.Rect(643, 11, 208, 35);
+                // FIX-OCR-4: thu hẹp chiều rộng để bỏ hẳn đồng xu bên phải.
+                var goldRect = new OpenCvSharp.Rect(643, 11, 150, 35);
                 if (goldRect.Right > frame.Width || goldRect.Bottom > frame.Height)
                 {
                     AddLog($"LỖI: Vùng Vàng {goldRect} vượt quá khung hình {frame.Width}x{frame.Height}.");
