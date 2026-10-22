@@ -11,7 +11,7 @@
         WindowStyle="None"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
-        Background="#1E1E1E">
+        Background="{StaticResource BackgroundMain}">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="30" />
@@ -21,7 +21,7 @@
 
         <!-- Row 0: Custom Title Bar -->
         <Grid Grid.Row="0"
-              Background="#2D2D30"
+              Background="{StaticResource BackgroundPanel}"
               MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -55,16 +55,11 @@
         </Grid>
 
         <!-- Row 1: Content Area (6 Tabs) -->
-        <TabControl Grid.Row="1"
-                    Background="#1E1E1E"
-                    BorderBrush="#2D2D30"
-                    BorderThickness="0,1,0,0">
+        <TabControl Grid.Row="1">
             <!-- 1. Log Tab -->
-            <TabItem Header="Log"
-                     Background="#252526"
-                     Foreground="White">
+            <TabItem Header="Log">
                 <ListBox ItemsSource="{Binding LogMessages}"
-                         Background="#1E1E1E"
+                         Background="{StaticResource BackgroundMain}"
                          Foreground="LightGreen"
                          FontFamily="Consolas, Courier New"
                          FontSize="12"
@@ -74,37 +69,27 @@
             </TabItem>
 
             <!-- 2. Village Tab -->
-            <TabItem Header="Village"
-                     Background="#252526"
-                     Foreground="White">
+            <TabItem Header="Village">
                 <views:VillageTabView />
             </TabItem>
 
             <!-- 3. Attack Plan Tab -->
-            <TabItem Header="Attack Plan"
-                     Background="#252526"
-                     Foreground="White">
+            <TabItem Header="Attack Plan">
                 <views:AttackTabView />
             </TabItem>
 
             <!-- 4. Bot Config Tab -->
-            <TabItem Header="Bot"
-                     Background="#252526"
-                     Foreground="White">
+            <TabItem Header="Bot">
                 <views:BotTabView />
             </TabItem>
 
             <!-- 5. Stats Tab -->
-            <TabItem Header="Stats"
-                     Background="#252526"
-                     Foreground="White">
+            <TabItem Header="Stats">
                 <views:StatsTabView />
             </TabItem>
 
             <!-- 6. About Tab -->
-            <TabItem Header="About"
-                     Background="#252526"
-                     Foreground="White">
+            <TabItem Header="About">
                 <views:AboutTabView />
             </TabItem>
         </TabControl>
