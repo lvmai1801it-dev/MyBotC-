@@ -1,14 +1,14 @@
 # 🚀 MYBOT C# WPF - PROJECT PROGRESS & CONTEXT
 
-> **Cập nhật lần cuối:** Sau Task T4.R (Refactor Phase 4 - Game Math Engine)
-> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1–T4.8, T4.R, T7.25, T7.26, T7.27 và T7.28.
+> **Cập nhật lần cuối:** Sau Task INT-1 (Wire CollectorHarvester to UI Test Harness)
+> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1–T4.8, T4.R, T5.1 (tối giản), INT-1, T7.25, T7.26, T7.27 và T7.28.
 > **Tổng số Tests:** 156/156 PASS (153 Core + 1 CoC + 1 Integration + 1 UI).
-> **Commit gần nhất:** xem `git log -1` — `refactor(Phase4): add XML docs, format code, cleanup Game.CoC`.
+> **Commit gần nhất:** xem `git log -1` — `feat(INT-1): wire CollectorHarvester to UI test harness`.
 
 ## 1. TỔNG QUAN TIẾN ĐỘ
 - **Ngôn ngữ:** C# 12 / .NET 8 / WPF / MVVM (CommunityToolkit).
 - **Testing:** xUnit + FluentAssertions + Moq.
-- **Đã hoàn thành:** ~43 tasks / 148 tasks (~29%).
+- **Đã hoàn thành:** ~44 tasks / 148 tasks (~30%).
 - **Kiến trúc:** Clean Architecture, SOLID, Test-first.
 
 ## 2. CẤU TRÚC THƯ MỤC HIỆN TẠI
@@ -19,7 +19,7 @@
 - `src/MyBot.Core.ActionContract/` (DAV Executor, VisualAssertion)
 - `src/MyBot.Core.AntiBan/` (HumanDelay, BezierPath, BoundingBoxClick, CoordinateHistory, MicroBreak, Circadian, BehavioralProfile)
 - `src/MyBot.Core.CV/` (TemplateMatcher - OpenCV matchTemplate)
-- `src/MyBot.Game.CoC/` (StateClassifier; `Math/` - DiamondArea, DiamondAreaCalculator)
+- `src/MyBot.Game.CoC/` (StateClassifier; `Math/` - geometry, red area, dropline, classifier; `Detection/` - StorageDetector; `Village/` - CollectorHarvester)
 - `src/MyBot.UI/` (MainWindow, 6 Tabs, ViewModels)
 - `src/MyBot.App/` (App.xaml, Startup.cs - DI Composition Root)
 - `tests/MyBot.Core.Tests/` (153 tests)
@@ -46,6 +46,8 @@
 18. **Storage Detector (T4.7):** `StorageDetector.HasFullStorage(frame, template)` trả false nếu frame/template null hoặc rỗng, ngược lại gọi `ITemplateMatcher.Find(..., 0.75)` và trả `match != null`.
 19. **Base Classifier (T4.8):** `BaseType` enum (Unknown/DeadBase/LiveBase/THOutside/ProgressBase) + `BaseClassifier.Classify(...)` ưu tiên THOutside → DeadBase (≥5 mỏ, kho cạn) → LiveBase (<5 mỏ, kho đầy) → ProgressBase (0 mỏ, kho cạn) → Unknown.
 20. **Phase 4 Refactor (T4.R):** `dotnet format` sạch; XML docs đầy đủ cho toàn bộ `MyBot.Game.CoC` (class/method/record params); không còn `Thread.Sleep`/anonymous type; phép chia tâm frame trong `RedAreaScanner` dùng `double`.
+21. **Collector Harvester tối giản (T5.1):** `CollectorHarvester.HarvestAllAsync(frame, template)` dùng `ITemplateMatcher.FindAll` (threshold 0.8), tap tâm từng khớp qua `IInputBackend`, delay Gaussian bằng `HumanDelay`; trả số mỏ đã click.
+22. **UI Test Harness (INT-1):** Nút **Test Harvest** ở tab Bot → Debug; `TestHarvestAsync` chụp MEmu qua ADB (`127.0.0.1:{AdbPort}`), đọc `gold_mine.png` từ thư mục exe, chạy harvester với ADB input; `Startup` đăng ký `ITemplateMatcher` + `HumanDelay`.
 
 ## 4. BÀI HỌC KINH NGHIỆM (LESSONS LEARNED)
 - **Flaky Tests:** Không dùng `Thread.Sleep`, luôn dùng `ITimeProvider`.
@@ -55,7 +57,7 @@
 - **FluentAssertions:** Dùng `.BeInRange(a,b)` thay vì `.BeBetween(a,b)`.
 
 ## 5. NHIỆM VỤ TIẾP THEO (TUẦN 2)
-- **Task ngay tiếp theo:** Ghép T4.1–T4.8 thành module chọn điểm thả quân an toàn (loại vùng đỏ, random trong diamond, deadbase detection), hoặc Phase 3 — T3.2/T3.3 (tiền xử lý ảnh).
+- **Task ngay tiếp theo:** Chạy thử INT-1 với MEmu thật (cần `gold_mine.png` trong thư mục bin), sau đó bổ sung Unit Test cho T5.1 và ghép T4.1–T4.8 thành module chọn điểm thả quân an toàn.
 - **Đã xong (T7.25):** Nối `ConfigManager` vào Tab Bot để Lưu/Đọc `config.json`.
 - **Mục tiêu tuần 2:** Bot có thể chụp ảnh MEmu, nhận diện màn hình Làng (Main Village) và hiển thị trạng thái lên UI.
 

@@ -17,6 +17,9 @@
     <ProjectReference Include="..\MyBot.Core.Capture\MyBot.Core.Capture.csproj" />
     <ProjectReference Include="..\MyBot.Core.Config\MyBot.Core.Config.csproj" />
     <ProjectReference Include="..\MyBot.Core.FSM\MyBot.Core.FSM.csproj" />
+    <ProjectReference Include="..\MyBot.Game.CoC\MyBot.Game.CoC.csproj" />
+    <ProjectReference Include="..\MyBot.Core.Input\MyBot.Core.Input.csproj" />
+    <ProjectReference Include="..\MyBot.Core.AntiBan\MyBot.Core.AntiBan.csproj" />
   </ItemGroup>
 
 </Project>

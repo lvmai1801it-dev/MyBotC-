@@ -7,9 +7,12 @@ using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MyBot.Core.Abstractions;
+using MyBot.Core.AntiBan;
 using MyBot.Core.Capture;
 using MyBot.Core.Config;
 using MyBot.Core.FSM;
+using MyBot.Core.Input;
+using MyBot.Game.CoC.Village;
 using OpenCvSharp;
 
 namespace MyBot.UI.ViewModels;
@@ -35,6 +38,8 @@ public partial class MainViewModel : ObservableObject
     private readonly IBotLogger _logger;
     private readonly IConfigManager _configManager;
     private readonly IProcessRunner _processRunner;
+    private readonly ITemplateMatcher _matcher;
+    private readonly HumanDelay _delay;
 
     // T7.27: Đường dẫn ADB mặc định của MEmu (có thể chuyển sang ConfigManager sau).
     private readonly string _adbPath = @"F:\Microvirt\MEmu\adb.exe";
@@ -191,12 +196,22 @@ public partial class MainViewModel : ObservableObject
     /// <param name="logger">Logger ghi nhận sự kiện.</param>
     /// <param name="configManager">Bộ quản lý cấu hình (config.json).</param>
     /// <param name="processRunner">Bộ chạy tiến trình dùng cho ADB.</param>
-    public MainViewModel(BotStateMachine fsm, IBotLogger logger, IConfigManager configManager, IProcessRunner processRunner)
+    /// <param name="matcher">Bộ so khớp ảnh mẫu dùng cho harvest.</param>
+    /// <param name="delay">Bộ sinh độ trễ mô phỏng hành vi người.</param>
+    public MainViewModel(
+        BotStateMachine fsm,
+        IBotLogger logger,
+        IConfigManager configManager,
+        IProcessRunner processRunner,
+        ITemplateMatcher matcher,
+        HumanDelay delay)
     {
         _fsm = fsm ?? throw new ArgumentNullException(nameof(fsm));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _configManager = configManager ?? throw new ArgumentNullException(nameof(configManager));
         _processRunner = processRunner ?? throw new ArgumentNullException(nameof(processRunner));
+        _matcher = matcher ?? throw new ArgumentNullException(nameof(matcher));
+        _delay = delay ?? throw new ArgumentNullException(nameof(delay));
 
         CurrentState = _fsm.CurrentState;
         StatusText = $"Status : {_fsm.CurrentState}";
@@ -398,6 +413,66 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             AddLog($"Không mở được ảnh: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// INT-1: Chụp màn hình MEmu, quét mỏ vàng theo template và click thu hoạch.
+    /// </summary>
+    [RelayCommand]
+    private async Task TestHarvestAsync()
+    {
+        AddLog("Bắt đầu quét mỏ vàng...");
+
+        string templatePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "gold_mine.png");
+        if (!File.Exists(templatePath))
+        {
+            AddLog("LỖI: Không tìm thấy file gold_mine.png. Hãy chụp và lưu vào thư mục bin.");
+            return;
+        }
+
+        try
+        {
+            await Task.Run(async () =>
+            {
+                using var capture = new AdbScreencapCaptureBackend(_adbPath, _processRunner);
+                var target = new EmulatorTarget(AdbSerial: $"127.0.0.1:{AdbPort}");
+
+                if (!capture.Initialize(target))
+                {
+                    AddLog("LỖI: Không thể kết nối ADB tới MEmu. Hãy kiểm tra giả lập đã bật chưa.");
+                    return;
+                }
+
+                using var frame = capture.GrabFrame();
+                if (frame.Empty())
+                {
+                    AddLog("LỖI: Chụp ảnh thất bại (Mat rỗng).");
+                    return;
+                }
+
+                using var templateMat = Cv2.ImRead(templatePath);
+                if (templateMat.Empty())
+                {
+                    AddLog("LỖI: Không đọc được file gold_mine.png.");
+                    return;
+                }
+
+                using var input = new AdbInputBackend(_adbPath, _processRunner);
+                if (!input.Initialize(target))
+                {
+                    AddLog("LỖI: Không thể khởi tạo ADB Input.");
+                    return;
+                }
+
+                var harvester = new CollectorHarvester(_matcher, input, _delay);
+                int count = await harvester.HarvestAllAsync(frame, templateMat);
+                AddLog($"Đã thu hoạch xong {count} mỏ vàng.");
+            });
+        }
+        catch (Exception ex)
+        {
+            AddLog($"LỖI: {ex.Message}");
         }
     }
 

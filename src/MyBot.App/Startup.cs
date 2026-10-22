@@ -3,7 +3,9 @@ using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MyBot.Core.Abstractions;
+using MyBot.Core.AntiBan;
 using MyBot.Core.Config;
+using MyBot.Core.CV;
 using MyBot.Core.FSM;
 using MyBot.Core.Logging;
 using MyBot.Core.Utils;
@@ -31,6 +33,10 @@ public static class Startup
 
         // T7.27: Bộ chạy tiến trình dùng cho ADB capture
         services.AddSingleton<IProcessRunner, ProcessRunner>();
+
+        // INT-1: Template matcher và bộ delay cho test harness harvest
+        services.AddSingleton<ITemplateMatcher, TemplateMatcher>();
+        services.AddTransient<HumanDelay>();
 
         // Cấu hình Serilog
         var logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
