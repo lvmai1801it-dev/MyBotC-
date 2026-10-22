@@ -424,13 +424,6 @@ public partial class MainViewModel : ObservableObject
     {
         AddLog("Bắt đầu quét mỏ vàng...");
 
-        string templatePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "gold_mine.png");
-        if (!File.Exists(templatePath))
-        {
-            AddLog("LỖI: Không tìm thấy file gold_mine.png. Hãy chụp và lưu vào thư mục bin.");
-            return;
-        }
-
         try
         {
             await Task.Run(async () =>
@@ -451,12 +444,25 @@ public partial class MainViewModel : ObservableObject
                     return;
                 }
 
+                string debugPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug_frame.png");
+                Cv2.ImWrite(debugPath, frame);
+                AddLog($"[DEBUG] Đã lưu ảnh chụp màn hình tại: {debugPath}");
+
+                string templatePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "gold_mine.png");
+                if (!File.Exists(templatePath))
+                {
+                    AddLog("[LỖI] KHÔNG TÌM THẤY FILE gold_mine.png trong thư mục bin!");
+                    return;
+                }
+
                 using var templateMat = Cv2.ImRead(templatePath);
                 if (templateMat.Empty())
                 {
-                    AddLog("LỖI: Không đọc được file gold_mine.png.");
+                    AddLog("[LỖI] File gold_mine.png bị hỏng hoặc không đọc được!");
                     return;
                 }
+
+                AddLog($"[DEBUG] Đã load ảnh mẫu: {templateMat.Width}x{templateMat.Height} pixels.");
 
                 using var input = new AdbInputBackend(_adbPath, _processRunner);
                 if (!input.Initialize(target))
@@ -467,6 +473,7 @@ public partial class MainViewModel : ObservableObject
 
                 var harvester = new CollectorHarvester(_matcher, input, _delay);
                 int count = await harvester.HarvestAllAsync(frame, templateMat);
+                AddLog($"[DEBUG] Tìm thấy {count} mỏ vàng.");
                 AddLog($"Đã thu hoạch xong {count} mỏ vàng.");
             });
         }

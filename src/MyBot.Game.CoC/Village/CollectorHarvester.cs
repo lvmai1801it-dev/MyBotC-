@@ -10,7 +10,7 @@ namespace MyBot.Game.CoC.Village;
 /// </summary>
 public class CollectorHarvester
 {
-    private const double DefaultThreshold = 0.8;
+    private const double DefaultThreshold = 0.6;
 
     private readonly ITemplateMatcher _matcher;
     private readonly IInputBackend _input;
