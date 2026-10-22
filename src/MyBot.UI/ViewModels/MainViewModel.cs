@@ -86,6 +86,13 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private int _builders = 3;
 
+    // INT-3: Tài nguyên & thợ xây đọc bằng OCR.
+    [ObservableProperty]
+    private int _gems = 0;
+
+    [ObservableProperty]
+    private string _builderText = "0/5";
+
     [ObservableProperty]
     private string _labTime = "1d 4h";
 
@@ -523,12 +530,12 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// INT-2.5: Chụp màn hình MEmu, cắt vùng Vàng và đọc số bằng OCR.
+    /// INT-3: Chụp màn hình MEmu và đọc toàn bộ tài nguyên (Gold, Elixir, DE, Gems, Builders).
     /// </summary>
     [RelayCommand]
-    private async Task ReadGoldAsync()
+    private async Task ReadAllResourcesAsync()
     {
-        AddLog("Đang đọc số Vàng bằng OCR...");
+        AddLog("Đang đọc toàn bộ tài nguyên...");
 
         try
         {
@@ -546,57 +553,77 @@ public partial class MainViewModel : ObservableObject
                 using var frame = capture.GrabFrame();
                 if (frame.Empty())
                 {
-                    AddLog("LỖI: Chụp ảnh thất bại (Mat rỗng).");
+                    AddLog("LỖI: Không thể chụp màn hình.");
                     return;
                 }
 
-                // FIX-OCR-4: thu hẹp chiều rộng để bỏ hẳn đồng xu bên phải.
-                var goldRect = new OpenCvSharp.Rect(643, 11, 200, 35);
-                if (goldRect.Right > frame.Width || goldRect.Bottom > frame.Height)
-                {
-                    AddLog($"LỖI: Vùng Vàng {goldRect} vượt quá khung hình {frame.Width}x{frame.Height}.");
-                    return;
-                }
+                // Toạ độ ước lượng, user sẽ tinh chỉnh sau.
+                var goldRect = new OpenCvSharp.Rect(643, 11, 160, 32);
+                var elixirRect = new OpenCvSharp.Rect(643, 40, 160, 32);
+                var darkElixirRect = new OpenCvSharp.Rect(643, 69, 160, 32);
+                var gemsRect = new OpenCvSharp.Rect(740, 680, 80, 30);
+                var buildersRect = new OpenCvSharp.Rect(640, 680, 80, 30);
 
-                // Vẽ ô vuông xanh lá để user kiểm tra vùng cắt trước khi OCR.
-                Cv2.Rectangle(frame, goldRect, new Scalar(0, 255, 0), 2);
+                ReadResourceRegion(frame, goldRect, "Gold", val => Gold = val);
+                ReadResourceRegion(frame, elixirRect, "Elixir", val => Elixir = val);
+                ReadResourceRegion(frame, darkElixirRect, "DarkElixir", val => DarkElixir = val);
 
-                string boxedFramePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug_frame_with_gold_box.png");
-                Cv2.ImWrite(boxedFramePath, frame);
-                AddLog($"[DEBUG] Đã lưu ảnh khoanh vùng Vàng tại: {boxedFramePath}");
+                // Gems và Builders nằm ở góc dưới bên phải (trên thanh Shop/Build).
+                ReadResourceRegion(frame, gemsRect, "Gems", val => Gems = val);
+                ReadResourceRegion(frame, buildersRect, "Builders", null, text => BuilderText = $"{text}/5");
 
-                using var goldMat = new Mat(frame, goldRect);
+                Cv2.Rectangle(frame, goldRect, new Scalar(0, 255, 255), 2);       // Gold - vàng
+                Cv2.Rectangle(frame, elixirRect, new Scalar(255, 0, 255), 2);     // Elixir - hồng
+                Cv2.Rectangle(frame, darkElixirRect, new Scalar(128, 0, 128), 2); // DE - tím
+                Cv2.Rectangle(frame, gemsRect, new Scalar(0, 255, 0), 2);         // Gems - xanh lá
+                Cv2.Rectangle(frame, buildersRect, new Scalar(255, 0, 0), 2);     // Builders - xanh dương
 
-                string debugPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "gold_crop.png");
-                Cv2.ImWrite(debugPath, goldMat);
-                AddLog($"[DEBUG] Đã lưu ảnh vùng Vàng tại: {debugPath}");
-
-                string rawText = _ocrEngine.Recognize(goldMat);
-                AddLog($"[DEBUG] Raw OCR Text: '{rawText.Trim()}'"); // Log để kiểm tra
-
-                if (string.IsNullOrWhiteSpace(rawText))
-                {
-                    AddLog("LỖI: OCR trả về chuỗi rỗng.");
-                    return;
-                }
-
-                // Xóa mọi ký tự không phải là số (dấu cách, phẩy, chữ O...)
-                string cleanText = System.Text.RegularExpressions.Regex.Replace(rawText, @"[^\d]", "");
-
-                if (int.TryParse(cleanText, out int goldVal))
-                {
-                    Gold = goldVal;
-                    AddLog($"Đọc Vàng thành công: {Gold}");
-                }
-                else
-                {
-                    AddLog($"LỖI: Không thể parse chuỗi '{cleanText}' thành số.");
-                }
+                string debugPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug_all_resources.png");
+                Cv2.ImWrite(debugPath, frame);
+                AddLog($"Đã đọc xong. Xem ảnh kiểm tra tại: {debugPath}");
             });
         }
         catch (Exception ex)
         {
             AddLog($"LỖI OCR: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// INT-3: Cắt một vùng tài nguyên, đọc OCR, làm sạch chuỗi rồi cập nhật UI.
+    /// </summary>
+    /// <param name="frame">Ảnh chụp màn hình gốc.</param>
+    /// <param name="rect">Vùng cần đọc.</param>
+    /// <param name="resourceName">Tên tài nguyên dùng cho log và tên file debug.</param>
+    /// <param name="updateAction">Hàm cập nhật giá trị số.</param>
+    /// <param name="updateTextAction">Hàm cập nhật giá trị dạng chữ (ví dụ "3/5").</param>
+    private void ReadResourceRegion(
+        Mat frame,
+        OpenCvSharp.Rect rect,
+        string resourceName,
+        Action<int>? updateAction,
+        Action<string>? updateTextAction = null)
+    {
+        if (rect.X < 0 || rect.Y < 0 || rect.Right > frame.Width || rect.Bottom > frame.Height)
+        {
+            AddLog($"[{resourceName}] LỖI: vùng {rect} vượt quá khung hình {frame.Width}x{frame.Height}.");
+            return;
+        }
+
+        using var crop = new Mat(frame, rect);
+        string rawText = _ocrEngine.Recognize(crop);
+        string cleanText = System.Text.RegularExpressions.Regex.Replace(rawText, @"[^\d]", "");
+
+        // Lưu ảnh để debug
+        string safeName = resourceName.ToLower().Replace(" ", "_");
+        Cv2.ImWrite(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"{safeName}_crop.png"), crop);
+
+        AddLog($"[{resourceName}] Raw: '{rawText.Trim()}' -> Parsed: '{cleanText}'");
+
+        if (int.TryParse(cleanText, out int val))
+        {
+            updateAction?.Invoke(val);
+            updateTextAction?.Invoke(cleanText);
         }
     }
 

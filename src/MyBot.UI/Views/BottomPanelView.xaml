@@ -177,7 +177,14 @@
                            VerticalAlignment="Center"
                            Margin="5,0"
                            TextAlignment="Right">
-                    <Run Text="🔨 " FontSize="9" /><Run Text="{Binding Builders}" FontWeight="SemiBold" /><Run Text="/5" Foreground="#888888" />
+                    <Run Text="💎 " FontSize="9" /><Run Text="{Binding Gems}" FontWeight="SemiBold" />
+                </TextBlock>
+                <TextBlock FontSize="11"
+                           Foreground="{StaticResource ForegroundText}"
+                           VerticalAlignment="Center"
+                           Margin="5,0"
+                           TextAlignment="Right">
+                    <Run Text="🔨 " FontSize="9" /><Run Text="{Binding BuilderText}" FontWeight="SemiBold" />
                 </TextBlock>
                 <TextBlock FontSize="11"
                            Foreground="{StaticResource ForegroundText}"

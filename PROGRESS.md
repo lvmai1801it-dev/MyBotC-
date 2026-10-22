@@ -1,9 +1,9 @@
 # 🚀 MYBOT C# WPF - PROJECT PROGRESS & CONTEXT
 
-> **Cập nhật lần cuối:** Sau Task FIX-OCR-NATIVE (Native OCR + làm sạch chuỗi)
-> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1–T4.8, T4.R, T5.1 (tối giản), INT-1, INT-1.1, INT-2.5, FIX-INT2, FIX-OCR-2, FIX-OCR-4, FIX-OCR-6, FIX-OCR-7, INT-OCR-NATIVE, FIX-OCR-NATIVE, T7.25, T7.26, T7.27 và T7.28.
+> **Cập nhật lần cuối:** Sau Task INT-3 (Đọc toàn bộ tài nguyên + bind UI)
+> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1–T4.8, T4.R, T5.1 (tối giản), INT-1, INT-1.1, INT-2.5, FIX-INT2, FIX-OCR-2, FIX-OCR-4, FIX-OCR-6, FIX-OCR-7, INT-OCR-NATIVE, FIX-OCR-NATIVE, INT-3, T7.25, T7.26, T7.27 và T7.28.
 > **Tổng số Tests:** 156/156 PASS (153 Core + 1 CoC + 1 Integration + 1 UI).
-> **Commit gần nhất:** xem `git log -1` — `feat(OCR): integrate native MyBot OCR engine and clean gold text`.
+> **Commit gần nhất:** xem `git log -1` — `feat(INT-3): read all resources via OCR and bind UI`.
 
 ## 1. TỔNG QUAN TIẾN ĐỘ
 - **Ngôn ngữ:** C# 12 / .NET 8 / WPF / MVVM (CommunityToolkit).
@@ -57,6 +57,7 @@
 29. **DigitOcrEngine (FIX-OCR-6):** thay hoàn toàn Tesseract bằng OCR template số: Gray → `BinaryInv` ngưỡng 150 → `FindContours` → lọc contour cao 15–35 px → sắp xếp theo X → resize 24x32 → `MatchTemplate` với 10 mẫu `templates/digits/0.png`..`9.png`; lưu `gold_crop_binary.png` để debug. `Startup` khởi tạo engine với `BaseDirectory/templates/digits`; đã gỡ package Tesseract, `OcrEngine.cs` và bước copy `tessdata`.
 30. **Cắt số theo lưới (FIX-OCR-7):** bỏ `FindContours` (glow làm dính chữ); dùng Gray → ngưỡng lõi trắng 220 (`Binary`) → `Dilate` 2x2 → chia vùng đọc thành 9 ô đều (`charWidth = Width / 9`) → resize template về kích thước ô → `MatchTemplate`; chỉ nối số khi score > 0.5, ô thấp hơn coi là dấu cách.
 31. **Native OCR + làm sạch chuỗi (FIX-OCR-NATIVE):** `MyBotNativeOcrEngine` nạp `MyBot.run.dll` qua `LoadLibrary`, gọi export `ocr`/`DoOCR` + `GetAsyncResult`, chuyển `Mat` sang DIB 32-bit; `Startup` ưu tiên engine native, fallback `DigitOcrEngine`; App và test host chạy **x86**, copy `native/lib` → `lib` cạnh exe. `ReadGoldAsync` log raw text rồi `Regex.Replace(@"[^\d]", "")` trước `int.TryParse` nên đọc được cả chuỗi có dấu cách (`6 253 000` → `6253000`).
+32. **Đọc toàn bộ tài nguyên (INT-3):** thêm `Gems`, `BuilderText`; helper `ReadResourceRegion(frame, rect, name, updateAction, updateTextAction)` cắt vùng → OCR → lọc số → lưu `{name}_crop.png` → log raw/parsed; `ReadAllResourcesAsync` chụp 1 frame, đọc Gold/Elixir/DarkElixir/Gems/Builders, vẽ 5 khung màu và lưu `debug_all_resources.png`; nút **Read Resources** thay cho **Read Gold**; Bottom Panel hiển thị Gems và `BuilderText` (`x/5`).
 31. **Native OCR (INT-OCR-NATIVE):** thêm `MyBotNativeOcrEngine` gọi trực tiếp `MyBot.run.dll` gốc (module 32-bit) qua P/Invoke: `ocr` (đồng bộ) và `DoOCR` + `GetAsyncResult` (ImgLoc, bất đồng bộ). Copy `native/lib` (DLL + 90 file `listSymbols_*.xml` + 6 `.imglocdat`) ra `lib` cạnh exe; `MyBot.App` chuyển `PlatformTarget=x86`, test host `MyBot.Core.Tests` cũng x86. `Startup` ưu tiên engine native, fallback `DigitOcrEngine`. Build 0w/0e, 156/156 test PASS. Cần chạy thử **Read Gold** với MEmu thật để xác nhận vùng cắt và model `coc-ms`.
 
 ## 4. BÀI HỌC KINH NGHIỆM (LESSONS LEARNED)
@@ -68,7 +69,7 @@
 - **OCR native:** Engine gốc trả số có dấu cách (`6 253 000`); luôn lọc `[^\d]` trước khi parse.
 
 ## 5. NHIỆM VỤ TIẾP THEO (TUẦN 2)
-- **Task ngay tiếp theo:** Dùng engine native đọc thêm Elixir/Dark Elixir (cùng cơ chế `ReadGoldAsync`), sau đó bổ sung Unit Test cho T5.1 và ghép T4.1–T4.8 thành module chọn điểm thả quân an toàn.
+- **Task ngay tiếp theo:** Chạy **Read Resources** với MEmu, mở `debug_all_resources.png` để tinh chỉnh toạ độ Elixir/DE/Gems/Builders; sau đó bổ sung Unit Test cho T5.1 và ghép T4.1–T4.8 thành module chọn điểm thả quân an toàn.
 - **Đã xong (T7.25):** Nối `ConfigManager` vào Tab Bot để Lưu/Đọc `config.json`.
 - **Mục tiêu tuần 2:** Bot có thể chụp ảnh MEmu, nhận diện màn hình Làng (Main Village) và hiển thị trạng thái lên UI.
 
