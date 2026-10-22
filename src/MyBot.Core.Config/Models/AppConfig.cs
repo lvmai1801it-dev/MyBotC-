@@ -9,6 +9,22 @@ public class AppConfig
 
     [JsonProperty("emulator", Required = Required.Always)]
     public EmulatorConfig Emulator { get; set; } = new();
+
+    // T7.25: Các trường phẳng được bind trực tiếp trên Tab Bot (UI).
+    [JsonProperty("active_language")]
+    public string ActiveLanguage { get; set; } = "English";
+
+    [JsonProperty("delete_logs_days")]
+    public int DeleteLogsDays { get; set; } = 7;
+
+    [JsonProperty("emulator_type")]
+    public string EmulatorType { get; set; } = "MEmu";
+
+    [JsonProperty("adb_port")]
+    public int AdbPort { get; set; } = 21503;
+
+    [JsonProperty("enable_debug_log")]
+    public bool EnableDebugLog { get; set; } = false;
 }
 
 public class EmulatorConfig

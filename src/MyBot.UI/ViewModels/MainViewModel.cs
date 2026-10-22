@@ -5,6 +5,7 @@ using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MyBot.Core.Abstractions;
+using MyBot.Core.Config;
 using MyBot.Core.FSM;
 
 namespace MyBot.UI.ViewModels;
@@ -28,6 +29,7 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly BotStateMachine _fsm;
     private readonly IBotLogger _logger;
+    private readonly IConfigManager _configManager;
 
     [ObservableProperty]
     private string _statusText = "Idle";
@@ -137,13 +139,16 @@ public partial class MainViewModel : ObservableObject
 
     // Cấu hình Tab Bot
     [ObservableProperty]
-    private string _selectedLanguage = "English";
+    private string _activeLanguage = "English";
+
+    [ObservableProperty]
+    private int _deleteLogsDays = 7;
 
     [ObservableProperty]
     private string _emulatorType = "MEmu";
 
     [ObservableProperty]
-    private string _adbPort = "21503";
+    private int _adbPort = 21503;
 
     [ObservableProperty]
     private bool _enableDebugLog = false;
@@ -157,12 +162,17 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     /// <param name="fsm">Máy trạng thái hữu hạn của Bot.</param>
     /// <param name="logger">Logger ghi nhận sự kiện.</param>
-    public MainViewModel(BotStateMachine fsm, IBotLogger logger)
+    /// <param name="configManager">Bộ quản lý cấu hình (config.json).</param>
+    public MainViewModel(BotStateMachine fsm, IBotLogger logger, IConfigManager configManager)
     {
         _fsm = fsm ?? throw new ArgumentNullException(nameof(fsm));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _configManager = configManager ?? throw new ArgumentNullException(nameof(configManager));
 
         _statusText = _fsm.CurrentState.ToString();
+
+        // T7.25: Nạp cấu hình thật từ config.json thay vì Mock Data.
+        LoadConfig();
 
         // Mock data cho Stats DataGrid
         BattleHistory = new ObservableCollection<BattleRecord>
@@ -297,6 +307,64 @@ public partial class MainViewModel : ObservableObject
     private void EditDropOrder()
     {
         AddLog($"Opening drop order editor for: {SelectedStrategyFile}");
+    }
+
+    /// <summary>
+    /// Nạp cấu hình từ file config.json vào các trường của Tab Bot.
+    /// </summary>
+    [RelayCommand]
+    private void LoadConfig()
+    {
+        try
+        {
+            var config = _configManager.Load();
+
+            ActiveLanguage = config.ActiveLanguage;
+            DeleteLogsDays = config.DeleteLogsDays;
+            EmulatorType = config.EmulatorType;
+            AdbPort = config.AdbPort;
+            EnableDebugLog = config.EnableDebugLog;
+
+            AddLog("Config loaded from config.json");
+        }
+        catch (Exception ex)
+        {
+            AddLog($"Failed to load config: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Lưu các trường đang bind trên Tab Bot xuống file config.json.
+    /// </summary>
+    [RelayCommand]
+    private void SaveConfig()
+    {
+        try
+        {
+            // Nạp lại trước để giữ nguyên các trường không bind trên UI.
+            var config = _configManager.Load();
+
+            config.ActiveLanguage = ActiveLanguage;
+            config.DeleteLogsDays = DeleteLogsDays;
+            config.EmulatorType = EmulatorType;
+            config.AdbPort = AdbPort;
+            config.EnableDebugLog = EnableDebugLog;
+
+            // Đồng bộ khối cấu hình emulator lồng nhau (định dạng cũ) để tránh lệch dữ liệu.
+            if (config.Emulator is not null)
+            {
+                config.Emulator.Type = EmulatorType;
+                config.Emulator.AdbPort = AdbPort;
+            }
+
+            _configManager.Save(config);
+
+            AddLog("Config saved to config.json");
+        }
+        catch (Exception ex)
+        {
+            AddLog($"Failed to save config: {ex.Message}");
+        }
     }
 
     /// <summary>

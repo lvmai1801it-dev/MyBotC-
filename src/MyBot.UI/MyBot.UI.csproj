@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MyBot.Core\MyBot.Core.csproj" />
+    <ProjectReference Include="..\MyBot.Core.Config\MyBot.Core.Config.csproj" />
     <ProjectReference Include="..\MyBot.Core.FSM\MyBot.Core.FSM.csproj" />
   </ItemGroup>
 

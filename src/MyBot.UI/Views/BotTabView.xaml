@@ -38,82 +38,98 @@
         </Style>
     </UserControl.Resources>
 
-    <TabControl Background="#1E1E1E" BorderBrush="#2D2D30" BorderThickness="0">
-        <!-- 1. Options -->
-        <TabItem Header="Options" Style="{StaticResource DarkTab}">
-            <StackPanel Margin="12">
-                <TextBlock Text="Language" Style="{StaticResource LabelStyle}" />
-                <ComboBox Style="{StaticResource DarkCombo}"
-                          SelectedItem="{Binding SelectedLanguage}"
-                          Width="180" HorizontalAlignment="Left">
-                    <ComboBoxItem Content="English" />
-                    <ComboBoxItem Content="Vietnamese" />
-                    <ComboBoxItem Content="Spanish" />
-                </ComboBox>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
 
-                <TextBlock Text="Days to keep logs" Style="{StaticResource LabelStyle}" />
-                <TextBox Text="7" Style="{StaticResource FieldBox}" Width="80" HorizontalAlignment="Left" />
+        <TabControl Grid.Row="0" Background="#1E1E1E" BorderBrush="#2D2D30" BorderThickness="0">
+            <!-- 1. Options -->
+            <TabItem Header="Options" Style="{StaticResource DarkTab}">
+                <StackPanel Margin="12">
+                    <TextBlock Text="Language" Style="{StaticResource LabelStyle}" />
+                    <ComboBox Style="{StaticResource DarkCombo}"
+                              SelectedValue="{Binding ActiveLanguage, UpdateSourceTrigger=PropertyChanged}"
+                              SelectedValuePath="Content"
+                              Width="180" HorizontalAlignment="Left">
+                        <ComboBoxItem Content="English" />
+                        <ComboBoxItem Content="Vietnamese" />
+                        <ComboBoxItem Content="Spanish" />
+                    </ComboBox>
 
-                <CheckBox Content="Auto-start with Windows" Style="{StaticResource DarkCheck}" />
-            </StackPanel>
-        </TabItem>
+                    <TextBlock Text="Days to keep logs" Style="{StaticResource LabelStyle}" />
+                    <TextBox Text="{Binding DeleteLogsDays, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource FieldBox}" Width="80" HorizontalAlignment="Left" />
 
-        <!-- 2. Android -->
-        <TabItem Header="Android" Style="{StaticResource DarkTab}">
-            <StackPanel Margin="12">
-                <TextBlock Text="Emulator Type" Style="{StaticResource LabelStyle}" />
-                <ComboBox Style="{StaticResource DarkCombo}"
-                          SelectedItem="{Binding EmulatorType}"
-                          Width="180" HorizontalAlignment="Left">
-                    <ComboBoxItem Content="MEmu" />
-                    <ComboBoxItem Content="BlueStacks5" />
-                    <ComboBoxItem Content="LDPlayer" />
-                    <ComboBoxItem Content="Nox" />
-                </ComboBox>
-
-                <TextBlock Text="ADB Port" Style="{StaticResource LabelStyle}" />
-                <TextBox Text="{Binding AdbPort, UpdateSourceTrigger=PropertyChanged}"
-                         Style="{StaticResource FieldBox}" Width="100" HorizontalAlignment="Left" />
-
-                <TextBlock Text="Capture Method" Style="{StaticResource LabelStyle}" />
-                <ComboBox Style="{StaticResource DarkCombo}" Width="180" HorizontalAlignment="Left">
-                    <ComboBoxItem Content="GDI" IsSelected="True" />
-                    <ComboBoxItem Content="ADB" />
-                </ComboBox>
-            </StackPanel>
-        </TabItem>
-
-        <!-- 3. Debug -->
-        <TabItem Header="Debug" Style="{StaticResource DarkTab}">
-            <StackPanel Margin="12">
-                <CheckBox Content="Enable Debug Log"
-                          IsChecked="{Binding EnableDebugLog}"
-                          Style="{StaticResource DarkCheck}" />
-
-                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                    <Button Content="Test Capture" Style="{StaticResource ActionBtn}" />
-                    <Button Content="Test OCR" Style="{StaticResource ActionBtn}" />
+                    <CheckBox Content="Auto-start with Windows" Style="{StaticResource DarkCheck}" />
                 </StackPanel>
-            </StackPanel>
-        </TabItem>
+            </TabItem>
 
-        <!-- 4. Profiles -->
-        <TabItem Header="Profiles" Style="{StaticResource DarkTab}">
-            <StackPanel Margin="12">
-                <TextBlock Text="Active Profile" Style="{StaticResource LabelStyle}" />
-                <ComboBox Style="{StaticResource DarkCombo}" Width="180" HorizontalAlignment="Left">
-                    <ComboBoxItem Content="Main" IsSelected="True" />
-                    <ComboBoxItem Content="Donation" />
-                </ComboBox>
+            <!-- 2. Android -->
+            <TabItem Header="Android" Style="{StaticResource DarkTab}">
+                <StackPanel Margin="12">
+                    <TextBlock Text="Emulator Type" Style="{StaticResource LabelStyle}" />
+                    <ComboBox Style="{StaticResource DarkCombo}"
+                              SelectedValue="{Binding EmulatorType, UpdateSourceTrigger=PropertyChanged}"
+                              SelectedValuePath="Content"
+                              Width="180" HorizontalAlignment="Left">
+                        <ComboBoxItem Content="MEmu" />
+                        <ComboBoxItem Content="BlueStacks5" />
+                        <ComboBoxItem Content="LDPlayer" />
+                        <ComboBoxItem Content="Nox" />
+                    </ComboBox>
 
-                <StackPanel Orientation="Horizontal" Margin="0,4,0,10">
-                    <Button Content="Add" Style="{StaticResource ActionBtn}" />
-                    <Button Content="Rename" Style="{StaticResource ActionBtn}" />
-                    <Button Content="Delete" Style="{StaticResource ActionBtn}" />
+                    <TextBlock Text="ADB Port" Style="{StaticResource LabelStyle}" />
+                    <TextBox Text="{Binding AdbPort, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource FieldBox}" Width="100" HorizontalAlignment="Left" />
+
+                    <TextBlock Text="Capture Method" Style="{StaticResource LabelStyle}" />
+                    <ComboBox Style="{StaticResource DarkCombo}" Width="180" HorizontalAlignment="Left">
+                        <ComboBoxItem Content="GDI" IsSelected="True" />
+                        <ComboBoxItem Content="ADB" />
+                    </ComboBox>
                 </StackPanel>
+            </TabItem>
 
-                <CheckBox Content="Switch Account" Style="{StaticResource DarkCheck}" />
-            </StackPanel>
-        </TabItem>
-    </TabControl>
+            <!-- 3. Debug -->
+            <TabItem Header="Debug" Style="{StaticResource DarkTab}">
+                <StackPanel Margin="12">
+                    <CheckBox Content="Enable Debug Log"
+                              IsChecked="{Binding EnableDebugLog, UpdateSourceTrigger=PropertyChanged}"
+                              Style="{StaticResource DarkCheck}" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Content="Test Capture" Style="{StaticResource ActionBtn}" />
+                        <Button Content="Test OCR" Style="{StaticResource ActionBtn}" />
+                    </StackPanel>
+                </StackPanel>
+            </TabItem>
+
+            <!-- 4. Profiles -->
+            <TabItem Header="Profiles" Style="{StaticResource DarkTab}">
+                <StackPanel Margin="12">
+                    <TextBlock Text="Active Profile" Style="{StaticResource LabelStyle}" />
+                    <ComboBox Style="{StaticResource DarkCombo}" Width="180" HorizontalAlignment="Left">
+                        <ComboBoxItem Content="Main" IsSelected="True" />
+                        <ComboBoxItem Content="Donation" />
+                    </ComboBox>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,10">
+                        <Button Content="Add" Style="{StaticResource ActionBtn}" />
+                        <Button Content="Rename" Style="{StaticResource ActionBtn}" />
+                        <Button Content="Delete" Style="{StaticResource ActionBtn}" />
+                    </StackPanel>
+
+                    <CheckBox Content="Switch Account" Style="{StaticResource DarkCheck}" />
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+
+        <!-- T7.25: Hàng nút lưu/đọc cấu hình -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="12,4,12,8">
+            <Button Content="Save Config" Command="{Binding SaveConfigCommand}" Style="{StaticResource ActionBtn}" />
+            <Button Content="Load Config" Command="{Binding LoadConfigCommand}" Style="{StaticResource ActionBtn}" />
+        </StackPanel>
+    </Grid>
 </UserControl>
