@@ -214,7 +214,7 @@
                             <Setter TargetName="Bd" Property="Opacity" Value="0.7" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

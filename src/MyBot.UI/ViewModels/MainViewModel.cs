@@ -42,6 +42,25 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _statusText = "Idle";
 
+    // T7.28: Trạng thái FSM hiện tại — mọi computed property bên dưới tự cập nhật theo.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsStartEnabled))]
+    [NotifyPropertyChangedFor(nameof(IsStopEnabled))]
+    [NotifyPropertyChangedFor(nameof(IsPauseEnabled))]
+    [NotifyPropertyChangedFor(nameof(IsResumeEnabled))]
+    [NotifyPropertyChangedFor(nameof(StartButtonText))]
+    private BotState _currentState = BotState.Idle;
+
+    public bool IsStartEnabled => CurrentState == BotState.Idle;
+
+    public bool IsStopEnabled => CurrentState != BotState.Idle && CurrentState != BotState.Stopping;
+
+    public bool IsPauseEnabled => CurrentState == BotState.Searching;
+
+    public bool IsResumeEnabled => CurrentState == BotState.Paused;
+
+    public string StartButtonText => CurrentState == BotState.Starting ? "Starting..." : "START";
+
     [ObservableProperty]
     private ObservableCollection<string> _logMessages = new();
 
@@ -179,7 +198,8 @@ public partial class MainViewModel : ObservableObject
         _configManager = configManager ?? throw new ArgumentNullException(nameof(configManager));
         _processRunner = processRunner ?? throw new ArgumentNullException(nameof(processRunner));
 
-        _statusText = _fsm.CurrentState.ToString();
+        CurrentState = _fsm.CurrentState;
+        StatusText = $"Status : {_fsm.CurrentState}";
 
         // T7.25: Nạp cấu hình thật từ config.json thay vì Mock Data.
         LoadConfig();
@@ -198,8 +218,8 @@ public partial class MainViewModel : ObservableObject
         {
             void OnStateChanged()
             {
-                StatusText = newState.ToString();
-                UpdateCommandCanExecute();
+                CurrentState = newState;
+                StatusText = $"Status : {newState}";
             }
 
             if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
@@ -213,57 +233,16 @@ public partial class MainViewModel : ObservableObject
         };
     }
 
-    private bool CanStart => _fsm.CurrentState == BotState.Idle;
-    private bool CanStop => _fsm.CurrentState is BotState.Starting or BotState.Searching or BotState.Paused;
-    private bool CanPause => _fsm.CurrentState == BotState.Searching;
-
     /// <summary>
-    /// Bắt đầu chạy bot: chuyển từ Idle -> Starting -> Searching sau 2 giây,
-    /// kèm vòng lặp giả lập tăng tài nguyên và hồi phục Hero.
+    /// Bắt đầu bot: Idle -> Starting, sau 2 giây chuyển sang Searching.
     /// </summary>
-    [RelayCommand(CanExecute = nameof(CanStart))]
+    [RelayCommand]
     private async Task StartBot()
     {
         if (_fsm.CurrentState != BotState.Idle) return;
 
         _fsm.TransitionTo(BotState.Starting);
         AddLog("Bot Started");
-
-        // Vòng lặp giả lập tài nguyên & trạng thái Hero
-        _ = Task.Run(async () =>
-        {
-            var rng = new Random();
-            int ticks = 0;
-            while (_fsm.CurrentState != BotState.Idle)
-            {
-                await Task.Delay(1000);
-                if (_fsm.CurrentState == BotState.Idle) break;
-
-                ticks++;
-                int goldDelta = rng.Next(1000, 5001);
-                int elixirDelta = rng.Next(1000, 5001);
-
-                void UpdateUI()
-                {
-                    Gold += goldDelta;
-                    Elixir += elixirDelta;
-                    if (ticks >= 3 && QueenState == HeroState.Blue)
-                    {
-                        QueenState = HeroState.Green;
-                        AddLog("Queen has recovered!");
-                    }
-                }
-
-                if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
-                {
-                    _ = dispatcher.InvokeAsync(UpdateUI);
-                }
-                else
-                {
-                    UpdateUI();
-                }
-            }
-        });
 
         await Task.Delay(2000);
 
@@ -274,30 +253,78 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Dừng bot: chuyển từ Searching/Starting -> Stopping -> Idle.
+    /// Dừng bot: Starting/Error -> Idle ngay; Searching/Pausing/Paused -> Stopping, sau 1 giây về Idle.
     /// </summary>
-    [RelayCommand(CanExecute = nameof(CanStop))]
-    private void StopBot()
+    [RelayCommand]
+    private async Task StopBot()
     {
-        if (_fsm.CurrentState is BotState.Searching or BotState.Starting or BotState.Paused)
+        switch (_fsm.CurrentState)
         {
-            _fsm.TransitionTo(BotState.Stopping);
-            AddLog("Bot Stopped");
-            _fsm.TransitionTo(BotState.Idle);
+            case BotState.Starting:
+            case BotState.Uninitialized:
+            case BotState.Error:
+                _fsm.TransitionTo(BotState.Idle);
+                AddLog("Bot Stopped");
+                break;
+
+            case BotState.Searching:
+            case BotState.Pausing:
+            case BotState.Paused:
+                _fsm.TransitionTo(BotState.Stopping);
+                AddLog("Bot Stopping...");
+
+                await Task.Delay(1000);
+
+                if (_fsm.CurrentState == BotState.Stopping)
+                {
+                    _fsm.TransitionTo(BotState.Idle);
+                    AddLog("Bot Stopped");
+                }
+                break;
+
+            default:
+                AddLog($"Không thể dừng bot khi đang ở trạng thái {_fsm.CurrentState}");
+                break;
         }
     }
 
     /// <summary>
-    /// Tạm dừng bot: chuyển từ Searching -> Pausing -> Paused.
+    /// Tạm dừng bot: Searching -> Pausing, sau 1 giây chuyển sang Paused.
     /// </summary>
-    [RelayCommand(CanExecute = nameof(CanPause))]
-    private void PauseBot()
+    [RelayCommand]
+    private async Task PauseBot()
     {
-        if (_fsm.CurrentState == BotState.Searching)
+        if (_fsm.CurrentState != BotState.Searching) return;
+
+        _fsm.TransitionTo(BotState.Pausing);
+        AddLog("Bot Pausing...");
+
+        await Task.Delay(1000);
+
+        if (_fsm.CurrentState == BotState.Pausing)
         {
-            _fsm.TransitionTo(BotState.Pausing);
             _fsm.TransitionTo(BotState.Paused);
             AddLog("Bot Paused");
+        }
+    }
+
+    /// <summary>
+    /// Tiếp tục bot: Paused -> Resuming, sau 1 giây chuyển sang Searching.
+    /// </summary>
+    [RelayCommand]
+    private async Task Resume()
+    {
+        if (_fsm.CurrentState != BotState.Paused) return;
+
+        _fsm.TransitionTo(BotState.Resuming);
+        AddLog("Bot Resuming...");
+
+        await Task.Delay(1000);
+
+        if (_fsm.CurrentState == BotState.Resuming)
+        {
+            _fsm.TransitionTo(BotState.Searching);
+            AddLog("Bot Resumed");
         }
     }
 
@@ -429,28 +456,6 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             AddLog($"Failed to save config: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Cập nhật trạng thái CanExecute của các lệnh điều khiển bot.
-    /// </summary>
-    public void UpdateCommandCanExecute()
-    {
-        void Update()
-        {
-            StartBotCommand.NotifyCanExecuteChanged();
-            StopBotCommand.NotifyCanExecuteChanged();
-            PauseBotCommand.NotifyCanExecuteChanged();
-        }
-
-        if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
-        {
-            _ = dispatcher.InvokeAsync(Update);
-        }
-        else
-        {
-            Update();
         }
     }
 

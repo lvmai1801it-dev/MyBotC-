@@ -34,12 +34,13 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- CỘT TRÁI: 3 NÚT ĐIỀU KHIỂN -->
+        <!-- CỘT TRÁI: 4 NÚT ĐIỀU KHIỂN (T7.28) -->
         <StackPanel Grid.Column="0"
                     VerticalAlignment="Center"
                     Margin="0,0,6,0">
-            <Button Content="START"
+            <Button Content="{Binding StartButtonText}"
                     Command="{Binding StartBotCommand}"
+                    IsEnabled="{Binding IsStartEnabled}"
                     Width="70"
                     Height="28"
                     Background="{StaticResource StartButtonColor}"
@@ -50,6 +51,7 @@
                     Margin="0,0,0,3" />
             <Button Content="STOP"
                     Command="{Binding StopBotCommand}"
+                    IsEnabled="{Binding IsStopEnabled}"
                     Width="70"
                     Height="28"
                     Background="{StaticResource StopButtonColor}"
@@ -58,15 +60,29 @@
                     FontSize="11"
                     BorderThickness="0"
                     Margin="0,0,0,3" />
-            <Button Content="PAUSE"
-                    Command="{Binding PauseBotCommand}"
-                    Width="70"
-                    Height="28"
-                    Background="{StaticResource PauseButtonColor}"
-                    Foreground="White"
-                    FontWeight="Bold"
-                    FontSize="11"
-                    BorderThickness="0" />
+            <StackPanel Orientation="Horizontal">
+                <Button Content="PAUSE"
+                        Command="{Binding PauseBotCommand}"
+                        IsEnabled="{Binding IsPauseEnabled}"
+                        Width="70"
+                        Height="28"
+                        Background="{StaticResource PauseButtonColor}"
+                        Foreground="White"
+                        FontWeight="Bold"
+                        FontSize="11"
+                        BorderThickness="0"
+                        Margin="0,0,3,0" />
+                <Button Content="RESUME"
+                        Command="{Binding ResumeCommand}"
+                        IsEnabled="{Binding IsResumeEnabled}"
+                        Width="70"
+                        Height="28"
+                        Background="{StaticResource AccentColor}"
+                        Foreground="White"
+                        FontWeight="Bold"
+                        FontSize="11"
+                        BorderThickness="0" />
+            </StackPanel>
         </StackPanel>
 
         <!-- PHÂN CÁCH TRÁI-GIỮA -->
@@ -141,7 +157,7 @@
                     <Run Text="🔨 " FontSize="9" /><Run Text="{Binding Builders}" FontWeight="SemiBold" /><Run Text="/5" Foreground="#888888" />
                 </TextBlock>
                 <TextBlock FontSize="11" Foreground="{StaticResource ForegroundText}" Margin="0,0,0,0">
-                    <Run Text="State: " Foreground="#888888" /><Run Text="{Binding StatusText}" Foreground="{StaticResource ForegroundText}" FontWeight="Bold" />
+                    <Run Text="{Binding StatusText}" Foreground="{StaticResource ForegroundText}" FontWeight="Bold" />
                 </TextBlock>
             </WrapPanel>
         </Grid>
