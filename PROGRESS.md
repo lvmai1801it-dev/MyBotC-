@@ -1,14 +1,14 @@
 # 🚀 MYBOT C# WPF - PROJECT PROGRESS & CONTEXT
 
-> **Cập nhật lần cuối:** Sau Task T7.26 (UI Theme Polish - Dark Mode VS Code)
-> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T7.25 và T7.26.
+> **Cập nhật lần cuối:** Sau Task T7.27 (Nối ADB Capture vào nút Test Capture)
+> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T7.25, T7.26 và T7.27.
 > **Tổng số Tests:** 111/111 PASS (108 Core + 1 CoC + 1 Integration + 1 UI).
-> **Commit gần nhất:** xem `git log -1` — `style(T7.26): apply unified dark theme and fix control colors`.
+> **Commit gần nhất:** xem `git log -1` — `feat(T7.27): wire ADB capture backend to UI Test Capture button`.
 
 ## 1. TỔNG QUAN TIẾN ĐỘ
 - **Ngôn ngữ:** C# 12 / .NET 8 / WPF / MVVM (CommunityToolkit).
 - **Testing:** xUnit + FluentAssertions + Moq.
-- **Đã hoàn thành:** ~31 tasks / 148 tasks (~21%).
+- **Đã hoàn thành:** ~32 tasks / 148 tasks (~22%).
 - **Kiến trúc:** Clean Architecture, SOLID, Test-first.
 
 ## 2. CẤU TRÚC THƯ MỤC HIỆN TẠI
@@ -33,6 +33,7 @@
 6. **Computer Vision (Phase 3 - T3.1):** `TemplateMatcher` dùng `OpenCvSharp4` (`CCoeffNormed`), `Find` (khớp tốt nhất) + `FindAll` (nhiều khớp, tự vô hiệu vùng đã tìm).
 7. **Config ↔ UI (T7.25):** Tab Bot bind 2 chiều với `IConfigManager`; `AppConfig` có thêm `ActiveLanguage`, `DeleteLogsDays`, `EmulatorType`, `AdbPort`, `EnableDebugLog`; nút **Save Config / Load Config** ghi/đọc `config.json` và ghi nhật ký.
 8. **Dark Theme (T7.26):** `Themes/DarkTheme.xaml` gom brush + implicit styles (TextBox, ComboBox có template dropdown tối, CheckBox, TabControl/TabItem có gạch chân Accent, Button). Nút Start/Stop/Pause và màu Gold/Elixir/DE đã dùng brush chung.
+9. **ADB Capture ↔ UI (T7.27):** Nút **Test Capture** gọi `AdbScreencapCaptureBackend` qua `IProcessRunner`; serial lấy từ `127.0.0.1:{AdbPort}` trong config; lưu `screenshot.png` cạnh file exe và tự mở bằng shell. `Startup` đã đăng ký `IProcessRunner`.
 
 ## 4. BÀI HỌC KINH NGHIỆM (LESSONS LEARNED)
 - **Flaky Tests:** Không dùng `Thread.Sleep`, luôn dùng `ITimeProvider`.
