@@ -38,6 +38,26 @@ public class MainScreenGuard
     /// <returns>True nếu pixel mốc khớp màu mục tiêu trong dung sai cho phép.</returns>
     public bool IsMainScreen(Mat frame)
     {
+        if (!TryGetMarkerColor(frame, out Vec3b pixel))
+        {
+            return false;
+        }
+
+        return System.Math.Abs(pixel.Item0 - TargetColor.Item0) <= Tolerance
+            && System.Math.Abs(pixel.Item1 - TargetColor.Item1) <= Tolerance
+            && System.Math.Abs(pixel.Item2 - TargetColor.Item2) <= Tolerance;
+    }
+
+    /// <summary>
+    /// Đọc màu pixel mốc để phục vụ debug khi guard trả về false.
+    /// </summary>
+    /// <param name="frame">Khung hình BGR cần đọc.</param>
+    /// <param name="color">Màu BGR đọc được tại pixel mốc.</param>
+    /// <returns>False nếu frame rỗng, quá nhỏ hoặc không đủ 3 kênh màu.</returns>
+    public bool TryGetMarkerColor(Mat frame, out Vec3b color)
+    {
+        color = default;
+
         if (frame is null || frame.Empty())
         {
             return false;
@@ -49,10 +69,7 @@ public class MainScreenGuard
             return false;
         }
 
-        Vec3b pixel = frame.At<Vec3b>(MarkerY, MarkerX);
-
-        return System.Math.Abs(pixel.Item0 - TargetColor.Item0) <= Tolerance
-            && System.Math.Abs(pixel.Item1 - TargetColor.Item1) <= Tolerance
-            && System.Math.Abs(pixel.Item2 - TargetColor.Item2) <= Tolerance;
+        color = frame.At<Vec3b>(MarkerY, MarkerX);
+        return true;
     }
 }

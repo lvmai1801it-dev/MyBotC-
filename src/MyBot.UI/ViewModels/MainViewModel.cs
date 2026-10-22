@@ -56,6 +56,10 @@ public partial class MainViewModel : ObservableObject
     private const int PollIntervalMs = 2000;
     private const string ProfileName = "Default";
 
+    // Pixel mốc dùng bởi MainScreenGuard (hệ toạ độ 860x732).
+    private const int MarkerPixelX = 840;
+    private const int MarkerPixelY = 53;
+
     // Toạ độ đã hiệu chỉnh theo ảnh chụp MEmu 860x732.
     private static readonly OpenCvSharp.Rect GoldRect = new(643, 16, 200, 32);
     private static readonly OpenCvSharp.Rect ElixirRect = new(643, 53, 200, 32);
@@ -343,32 +347,47 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            AddLog("Đang tìm cửa sổ giả lập...");
-            EmulatorInstance? instance = _emulatorDriver.DetectInstances().FirstOrDefault();
-            if (instance is null)
-            {
-                throw new InvalidOperationException(
-                    "Không tìm thấy cửa sổ giả lập (MEmu/LDPlayer/BlueStacks/Nox).");
-            }
-
-            AddLog($"Đã tìm thấy: {instance.Name}");
-
-            // Ép cửa sổ render về đúng khung 860x732 mà toạ độ OCR đã hiệu chỉnh.
-            Win32WindowNormalizer.EnsureWindowSize(instance.WindowHandle);
-            await Task.Delay(500, token);
-
-            ICaptureBackend captureBackend = _emulatorDriver.CreateCaptureBackend();
+            // Ưu tiên ADB vì chụp đúng độ phân giải thiết bị, không bị ảnh đen/viền cửa sổ.
+            AddLog($"[Loop] Kết nối ADB tới 127.0.0.1:{AdbPort}...");
+            ICaptureBackend captureBackend = new AdbScreencapCaptureBackend(_adbPath, _processRunner);
             capture = captureBackend;
 
-            var target = new EmulatorTarget(
-                WindowHandle: instance.WindowHandle,
-                AdbSerial: $"127.0.0.1:{AdbPort}");
+            var adbTarget = new EmulatorTarget(AdbSerial: $"127.0.0.1:{AdbPort}");
 
-            if (!captureBackend.Initialize(target))
+            if (!captureBackend.Initialize(adbTarget))
             {
-                throw new InvalidOperationException("Không khởi tạo được bộ chụp màn hình.");
+                AddLog("LỖI: ADB không kết nối được — thử chụp bằng cửa sổ (GDI)...");
+                captureBackend.Dispose();
+                capture = null;
+
+                EmulatorInstance? instance = _emulatorDriver.DetectInstances().FirstOrDefault();
+                if (instance is null)
+                {
+                    throw new InvalidOperationException(
+                        "Không kết nối được ADB và không tìm thấy cửa sổ giả lập.");
+                }
+
+                AddLog($"Đã tìm thấy: {instance.Name} — ép cửa sổ về 860x732...");
+
+                // Ép cửa sổ render về đúng khung 860x732 mà toạ độ OCR đã hiệu chỉnh.
+                Win32WindowNormalizer.EnsureWindowSize(instance.WindowHandle);
+                await Task.Delay(500, token);
+
+                captureBackend = _emulatorDriver.CreateCaptureBackend();
+                capture = captureBackend;
+
+                var windowTarget = new EmulatorTarget(
+                    WindowHandle: instance.WindowHandle,
+                    AdbSerial: $"127.0.0.1:{AdbPort}");
+
+                if (!captureBackend.Initialize(windowTarget))
+                {
+                    throw new InvalidOperationException(
+                        "Không khởi tạo được bộ chụp màn hình (ADB và GDI đều thất bại).");
+                }
             }
 
+            AddLog("Đã khởi tạo bộ chụp màn hình.");
             _fsm.TransitionTo(BotState.Searching);
             AddLog($"Bot đang chạy (chu kỳ {PollIntervalMs}ms).");
 
@@ -398,18 +417,30 @@ public partial class MainViewModel : ObservableObject
                 }
 
                 bool isMainScreen = _mainScreenGuard.IsMainScreen(frame);
-                if (lastMainScreen != isMainScreen)
+
+                if (!isMainScreen)
                 {
-                    AddLog(isMainScreen
-                        ? "Đã nhận diện màn hình làng chính."
-                        : "Không phải màn hình làng chính — đang chờ...");
-                    lastMainScreen = isMainScreen;
+                    // FIX-GUARD: log màu thực tế + lưu ảnh crosshair để biết sai màu hay lệch toạ độ.
+                    LogMarkerPixel(frame);
+                    SaveMainScreenDebugImage(frame);
+
+                    if (lastMainScreen != false)
+                    {
+                        AddLog("Không phải màn hình làng chính — đang chờ...");
+                        lastMainScreen = false;
+                    }
+
+                    await Task.Delay(PollIntervalMs, token);
+                    continue;
                 }
 
-                if (isMainScreen)
+                if (lastMainScreen != true)
                 {
-                    UpdateResourcesFromFrame(frame);
+                    AddLog("Đã nhận diện màn hình làng chính.");
+                    lastMainScreen = true;
                 }
+
+                UpdateResourcesFromFrame(frame);
 
                 await Task.Delay(PollIntervalMs, token);
             }
@@ -438,6 +469,63 @@ public partial class MainViewModel : ObservableObject
             }
 
             AddLog("[Loop] Đã kết thúc.");
+        }
+    }
+
+    /// <summary>
+    /// In màu thực tế tại pixel mốc để chẩn đoán vì sao <see cref="MainScreenGuard"/> trả về false.
+    /// </summary>
+    /// <param name="frame">Khung hình vừa chụp.</param>
+    private void LogMarkerPixel(Mat frame)
+    {
+        if (_mainScreenGuard.TryGetMarkerColor(frame, out Vec3b pixel))
+        {
+            AddLog(
+                $"[Loop] Pixel ({MarkerPixelX},{MarkerPixelY}) - B:{pixel.Item0}, G:{pixel.Item1}, R:{pixel.Item2} " +
+                "| target B:255 G:65 R:255 ±20");
+        }
+        else
+        {
+            AddLog(
+                $"[Loop] Không đọc được pixel mốc: frame {frame.Width}x{frame.Height}, " +
+                $"channels={frame.Channels()} (cần >= 850x60 và 3 kênh màu).");
+        }
+    }
+
+    /// <summary>
+    /// Vẽ chữ thập đỏ tại pixel mốc rồi lưu ra <c>loop_debug_mainscreen.png</c>.
+    /// </summary>
+    /// <param name="frame">Khung hình vừa chụp.</param>
+    private static void SaveMainScreenDebugImage(Mat frame)
+    {
+        try
+        {
+            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "loop_debug_mainscreen.png");
+
+            using Mat debug = frame.Clone();
+            var red = new Scalar(0, 0, 255);
+            var center = new OpenCvSharp.Point(MarkerPixelX, MarkerPixelY);
+
+            Cv2.Line(debug, new OpenCvSharp.Point(MarkerPixelX - 15, MarkerPixelY),
+                new OpenCvSharp.Point(MarkerPixelX + 15, MarkerPixelY), red, 1);
+            Cv2.Line(debug, new OpenCvSharp.Point(MarkerPixelX, MarkerPixelY - 15),
+                new OpenCvSharp.Point(MarkerPixelX, MarkerPixelY + 15), red, 1);
+            Cv2.Circle(debug, center, 5, red, 1);
+            Cv2.PutText(
+                debug,
+                $"({MarkerPixelX},{MarkerPixelY})",
+                new OpenCvSharp.Point(System.Math.Max(0, MarkerPixelX - 110), System.Math.Max(12, MarkerPixelY - 8)),
+                HersheyFonts.HersheySimplex,
+                0.5,
+                red,
+                1);
+
+            Cv2.ImWrite(path, debug);
+        }
+        catch (Exception ex)
+        {
+            // Không để lỗi ghi ảnh debug làm chết vòng lặp.
+            Console.Error.WriteLine($"[Loop] Không ghi được loop_debug_mainscreen.png: {ex.Message}");
         }
     }
 

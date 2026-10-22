@@ -77,6 +77,29 @@ public class MainScreenGuardTests
         _guard.IsMainScreen(frame).Should().BeFalse();
     }
 
+    // FIX-GUARD: đọc được màu pixel mốc để log debug.
+    [Fact]
+    public void TryGetMarkerColor_Should_Return_Real_Bgr_Value()
+    {
+        using var frame = CreateFrame(Width, Height, markerBgr: new byte[] { 255, 67, 255 });
+
+        bool found = _guard.TryGetMarkerColor(frame, out Vec3b color);
+
+        found.Should().BeTrue();
+        color.Item0.Should().Be(255);
+        color.Item1.Should().Be(67);
+        color.Item2.Should().Be(255);
+    }
+
+    // FIX-GUARD: frame quá nhỏ thì không đọc pixel mốc.
+    [Fact]
+    public void TryGetMarkerColor_Should_Return_False_For_Small_Frame()
+    {
+        using var frame = CreateFrame(Width: 100, Height: 30);
+
+        _guard.TryGetMarkerColor(frame, out _).Should().BeFalse();
+    }
+
     private static Mat CreateFrame(int Width, int Height, byte[]? markerBgr = null)
     {
         var pixels = new byte[Width * Height * 3];
