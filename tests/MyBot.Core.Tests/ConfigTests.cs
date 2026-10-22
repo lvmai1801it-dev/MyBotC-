@@ -31,6 +31,24 @@ public class ConfigTests
         File.Exists(_testConfigPath).Should().BeTrue(); // Phải tự tạo file
     }
 
+    // Profile lưu emulator + instance để lần sau không phải dò lại.
+    [Fact]
+    public void Load_Should_Read_Android_Instance_From_Profile()
+    {
+        File.WriteAllText(_testConfigPath, @"{
+            ""config_version"": ""2.0"",
+            ""emulator"": { ""type"": ""MEmu"", ""instance_id"": 0, ""adb_port"": 21503 },
+            ""emulator_type"": ""MEmu"",
+            ""android_instance"": ""MEmu-2"",
+            ""adb_port"": 21503
+        }");
+
+        var manager = new ConfigManager(_testConfigPath, _testSchemaPath);
+        var config = manager.Load();
+
+        config.AndroidInstance.Should().Be("MEmu-2");
+    }
+
     // T0.5.2: Ném lỗi nếu thiếu trường bắt buộc
     [Fact]
     public void Load_Should_Throw_Exception_On_Missing_Required_Field()

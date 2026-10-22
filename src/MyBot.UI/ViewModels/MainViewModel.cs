@@ -218,6 +218,13 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _emulatorType = "MEmu";
 
+    /// <summary>
+    /// Tên instance giả lập đã lưu trong profile. Để trống ở lần chạy đầu
+    /// để bot tự dò giả lập đang chạy hoặc đã cài.
+    /// </summary>
+    [ObservableProperty]
+    private string _androidInstance = string.Empty;
+
     [ObservableProperty]
     private int _adbPort = 21503;
 
@@ -363,19 +370,71 @@ public partial class MainViewModel : ObservableObject
         {
             // Ưu tiên ADB vì chụp đúng độ phân giải thiết bị, không bị ảnh đen/viền cửa sổ.
             AddLog($"[Loop] Kết nối ADB tới 127.0.0.1:{AdbPort}...");
-            ICaptureBackend captureBackend = new AdbScreencapCaptureBackend(_adbPath, _processRunner);
-            capture = captureBackend;
 
             string adbSerial = $"127.0.0.1:{AdbPort}";
             var adbTarget = new EmulatorTarget(AdbSerial: adbSerial);
 
-            if (!captureBackend.Initialize(adbTarget))
+            // Controller Android dùng cho cả khởi động CoC lẫn recovery giữa phiên.
+            device = new AdbAndroidDeviceController(_adbPath, _processRunner, adbSerial);
+            var startup = new EmulatorStartup(
+                _emulatorDriver,
+                _processRunner,
+                _logger,
+                _time,
+                serial => new AdbAndroidDeviceController(_adbPath, _processRunner, serial));
+
+            ICaptureBackend captureBackend = new AdbScreencapCaptureBackend(_adbPath, _processRunner);
+            capture = captureBackend;
+
+            bool adbReady = captureBackend.Initialize(adbTarget);
+            if (!adbReady)
+            {
+                // Chưa có ADB: dùng lại cửa sổ đang mở, nếu chưa có thì khởi động giả lập.
+                AddLog("[Loop] ADB chưa sẵn sàng — kiểm tra/khởi động giả lập...");
+                EmulatorStartupResult emulator = await startup.EnsureRunningAsync(
+                    _adbPath,
+                    adbSerial,
+                    EmulatorType,
+                    AndroidInstance,
+                    token);
+
+                // Lưu lại giả lập đã dò được (tương đương profile của bản AutoIt).
+                if (!string.IsNullOrWhiteSpace(emulator.EmulatorType))
+                {
+                    EmulatorType = emulator.EmulatorType;
+                }
+
+                if (!string.IsNullOrWhiteSpace(emulator.InstanceName))
+                {
+                    AndroidInstance = emulator.InstanceName;
+                }
+
+                // Giả lập vừa dò có thể dùng cổng ADB khác cấu hình (ví dụ MEmu → BlueStacks5).
+                if (emulator.AdbPort > 0 && emulator.AdbPort != AdbPort)
+                {
+                    AdbPort = emulator.AdbPort;
+                    adbSerial = $"127.0.0.1:{AdbPort}";
+                    adbTarget = new EmulatorTarget(AdbSerial: adbSerial);
+                    device = new AdbAndroidDeviceController(_adbPath, _processRunner, adbSerial);
+                }
+
+                if (emulator.Ready)
+                {
+                    adbReady = captureBackend.Initialize(adbTarget);
+                }
+                else
+                {
+                    AddLog($"LỖI: {emulator.Reason}");
+                }
+            }
+
+            if (!adbReady)
             {
                 AddLog("LỖI: ADB không kết nối được — thử chụp bằng cửa sổ (GDI)...");
                 captureBackend.Dispose();
                 capture = null;
 
-                EmulatorInstance? instance = _emulatorDriver.DetectInstances().FirstOrDefault();
+                EmulatorInstance? instance = _emulatorDriver.DetectRunningInstances().FirstOrDefault();
                 if (instance is null)
                 {
                     throw new InvalidOperationException(
@@ -414,7 +473,7 @@ public partial class MainViewModel : ObservableObject
             }
             else
             {
-                // ADB input dùng cho zoom (input roll); đầu vào ADB cũng cần cho recovery.
+                // ADB input dùng cho zoom (input roll) và recovery.
                 var adbInput = new AdbInputBackend(_adbPath, _processRunner);
                 if (adbInput.Initialize(adbTarget))
                 {
@@ -425,8 +484,6 @@ public partial class MainViewModel : ObservableObject
                     adbInput.Dispose();
                     AddLog("[Loop] Không khởi tạo được ADB input — bỏ qua zoom.");
                 }
-
-                device = new AdbAndroidDeviceController(_adbPath, _processRunner, adbSerial);
             }
 
             var recovery = new MainScreenRecovery(_mainScreenGuard, _time, _logger, device);
@@ -1156,6 +1213,7 @@ public partial class MainViewModel : ObservableObject
             ActiveLanguage = config.ActiveLanguage;
             DeleteLogsDays = config.DeleteLogsDays;
             EmulatorType = config.EmulatorType;
+            AndroidInstance = config.AndroidInstance;
             AdbPort = config.AdbPort;
             EnableDebugLog = config.EnableDebugLog;
 
@@ -1181,6 +1239,7 @@ public partial class MainViewModel : ObservableObject
             config.ActiveLanguage = ActiveLanguage;
             config.DeleteLogsDays = DeleteLogsDays;
             config.EmulatorType = EmulatorType;
+            config.AndroidInstance = AndroidInstance;
             config.AdbPort = AdbPort;
             config.EnableDebugLog = EnableDebugLog;
 

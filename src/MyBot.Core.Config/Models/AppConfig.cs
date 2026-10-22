@@ -20,6 +20,13 @@ public class AppConfig
     [JsonProperty("emulator_type")]
     public string EmulatorType { get; set; } = "MEmu";
 
+    /// <summary>
+    /// Tên instance đã chọn trong profile (ví dụ <c>MEmu</c>).
+    /// Chuỗi rỗng = lần chạy đầu, bot tự dò giả lập đang chạy/đã cài.
+    /// </summary>
+    [JsonProperty("android_instance")]
+    public string AndroidInstance { get; set; } = string.Empty;
+
     [JsonProperty("adb_port")]
     public int AdbPort { get; set; } = 21503;
 

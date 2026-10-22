@@ -67,6 +67,10 @@
                         <ComboBoxItem Content="Nox" />
                     </ComboBox>
 
+                    <TextBlock Text="Instance (để trống = tự dò)" Style="{StaticResource LabelStyle}" />
+                    <TextBox Text="{Binding AndroidInstance, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource FieldBox}" Width="180" HorizontalAlignment="Left" />
+
                     <TextBlock Text="ADB Port" Style="{StaticResource LabelStyle}" />
                     <TextBox Text="{Binding AdbPort, UpdateSourceTrigger=PropertyChanged}"
                              Style="{StaticResource FieldBox}" Width="100" HorizontalAlignment="Left" />
