@@ -1,9 +1,9 @@
 # 🚀 MYBOT C# WPF - PROJECT PROGRESS & CONTEXT
 
-> **Cập nhật lần cuối:** Sau Task FIX-INT2 (Tessdata output + debug tìm mỏ vàng)
-> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1–T4.8, T4.R, T5.1 (tối giản), INT-1, INT-1.1, INT-2.5, FIX-INT2, T7.25, T7.26, T7.27 và T7.28.
+> **Cập nhật lần cuối:** Sau Task FIX-OCR-2 (Toạ độ Vàng + ảnh debug)
+> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1–T4.8, T4.R, T5.1 (tối giản), INT-1, INT-1.1, INT-2.5, FIX-INT2, FIX-OCR-2, T7.25, T7.26, T7.27 và T7.28.
 > **Tổng số Tests:** 156/156 PASS (153 Core + 1 CoC + 1 Integration + 1 UI).
-> **Commit gần nhất:** xem `git log -1` — `fix(FIX-INT2): copy tessdata to output and debug gold-mine matching`.
+> **Commit gần nhất:** xem `git log -1` — `fix(OCR): update gold rect coords and add visual debug box`.
 
 ## 1. TỔNG QUAN TIẾN ĐỘ
 - **Ngôn ngữ:** C# 12 / .NET 8 / WPF / MVVM (CommunityToolkit).
@@ -52,6 +52,7 @@
 24. **UI Polish + Log Controls (INT-2.5):** Tab Log có nút **Clear Log**/**Copy Log**; Bottom Panel chia 3 cột Auto/*/Auto (nút điều khiển dọc, hero + timer trái, tài nguyên căn phải `TextAlignment="Right"`).
 25. **OCR Gold (INT-2.5):** `TesseractOcrEngine` (`IOcrEngine`) tiền xử lý Gray + Threshold 150, `PageSegMode.SingleLine`, lọc `[^\d]`; nút **Read Gold** cắt vùng `(580,20,180,32)`, lưu `gold_crop.png`, cập nhật `Gold`. Cần `tessdata/eng.traineddata` cạnh exe.
 26. **Fix Tesseract + Debug mỏ vàng (FIX-INT2):** `MyBot.App.csproj` copy `tessdata\**\*.*` ra output cho cả Debug/Release; `TesseractOcrEngine` chuẩn hoá đường dẫn tuyệt đối, tự dò ngược lên thư mục project khi output chưa có `tessdata`, và ném `FileNotFoundException` rõ ràng nếu thiếu `eng.traineddata`; `CollectorHarvester` hạ threshold 0.5, giữ `LastMatches`, UI log điểm khớp cao nhất và lưu `debug_frame_with_box.png` (khoanh đỏ + score).
+27. **Toạ độ Vàng + ảnh debug (FIX-OCR-2):** `ReadGoldAsync` cắt vùng `Rect(643, 11, 208, 35)`, vẽ ô xanh lá và lưu `debug_frame_with_gold_box.png` + `gold_crop.png`; `TesseractOcrEngine.PreprocessImage` (Gray → Invert → Otsu) dùng chung cho `Recognize`, lưu `gold_crop_binary.png` khi OCR trả chuỗi rỗng.
 
 ## 4. BÀI HỌC KINH NGHIỆM (LESSONS LEARNED)
 - **Flaky Tests:** Không dùng `Thread.Sleep`, luôn dùng `ITimeProvider`.

@@ -83,6 +83,32 @@ public class TesseractOcrEngine : IOcrEngine, IDisposable
         }
     }
 
+    /// <summary>
+    /// Tiền xử lý vùng ảnh cho OCR: Gray → Invert → Otsu để chữ sáng trên nền tối
+    /// thành chữ tối trên nền trắng (định dạng Tesseract ưu tiên).
+    /// </summary>
+    /// <param name="frame">Vùng ảnh BGR cần xử lý.</param>
+    /// <returns>Ảnh nhị phân mới; người gọi chịu trách nhiệm dispose. Trả Mat rỗng nếu input rỗng.</returns>
+    public Mat PreprocessImage(Mat frame)
+    {
+        ArgumentNullException.ThrowIfNull(frame);
+
+        if (frame.Empty())
+        {
+            return new Mat();
+        }
+
+        using Mat gray = new();
+        Cv2.CvtColor(frame, gray, ColorConversionCodes.BGR2GRAY);
+
+        using Mat inverted = new();
+        Cv2.BitwiseNot(gray, inverted);
+
+        var binary = new Mat();
+        Cv2.Threshold(inverted, binary, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+        return binary;
+    }
+
     /// <summary>Reads the digits from a single line of text in the given image region.</summary>
     /// <param name="region">Image region containing the number.</param>
     /// <returns>The digits found in the region, or an empty string.</returns>
@@ -95,18 +121,28 @@ public class TesseractOcrEngine : IOcrEngine, IDisposable
 
         EnsureEngine(_tessDataPath);
 
-        using Mat gray = new();
-        Cv2.CvtColor(region, gray, ColorConversionCodes.BGR2GRAY);
+        using Mat binary = PreprocessImage(region);
+        if (binary.Empty())
+        {
+            return string.Empty;
+        }
 
-        using Mat thresholded = new();
-        Cv2.Threshold(gray, thresholded, 150, 255, ThresholdTypes.Binary);
-
-        Cv2.ImEncode(".png", thresholded, out byte[] pngBytes);
+        Cv2.ImEncode(".png", binary, out byte[] pngBytes);
 
         using Pix pix = Pix.LoadFromMemory(pngBytes);
         using Page page = _engine!.Process(pix, PageSegMode.SingleLine);
 
-        return Regex.Replace(page.GetText(), @"[^\d]", string.Empty);
+        string text = Regex.Replace(page.GetText(), @"[^\d]", string.Empty);
+
+        // FIX-OCR-2: giữ lại ảnh nhị phân khi OCR thất bại để user kiểm tra
+        // vùng cắt/tiền xử lý có đúng không.
+        if (text.Length == 0)
+        {
+            string debugPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "gold_crop_binary.png");
+            Cv2.ImWrite(debugPath, binary);
+        }
+
+        return text;
     }
 
     private void EnsureEngine(string tessDataPath)

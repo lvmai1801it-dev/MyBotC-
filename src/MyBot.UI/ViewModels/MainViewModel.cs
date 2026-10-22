@@ -550,12 +550,20 @@ public partial class MainViewModel : ObservableObject
                     return;
                 }
 
-                var goldRect = new OpenCvSharp.Rect(580, 20, 180, 32);
+                // FIX-OCR-2: toạ độ vùng Vàng thực tế trên khung hình MEmu.
+                var goldRect = new OpenCvSharp.Rect(643, 11, 208, 35);
                 if (goldRect.Right > frame.Width || goldRect.Bottom > frame.Height)
                 {
                     AddLog($"LỖI: Vùng Vàng {goldRect} vượt quá khung hình {frame.Width}x{frame.Height}.");
                     return;
                 }
+
+                // Vẽ ô vuông xanh lá để user kiểm tra vùng cắt trước khi OCR.
+                Cv2.Rectangle(frame, goldRect, new Scalar(0, 255, 0), 2);
+
+                string boxedFramePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug_frame_with_gold_box.png");
+                Cv2.ImWrite(boxedFramePath, frame);
+                AddLog($"[DEBUG] Đã lưu ảnh khoanh vùng Vàng tại: {boxedFramePath}");
 
                 using var goldMat = new Mat(frame, goldRect);
 
@@ -572,6 +580,7 @@ public partial class MainViewModel : ObservableObject
                 else
                 {
                     AddLog($"LỖI: OCR không đọc được số Vàng (raw='{rawText}').");
+                    AddLog("[DEBUG] Đã lưu ảnh binary để kiểm tra: gold_crop_binary.png");
                 }
             });
         }
