@@ -1,11 +1,15 @@
+using System;
 using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MyBot.Core.Abstractions;
 using MyBot.Core.Config;
+using MyBot.Core.FSM;
 using MyBot.Core.Logging;
 using MyBot.Core.Utils;
+using MyBot.UI;
 using MyBot.UI.Tabs.Log;
+using MyBot.UI.ViewModels;
 using Serilog;
 
 namespace MyBot.App;
@@ -24,9 +28,6 @@ public static class Startup
 
         // Đăng ký IConfigManager
         services.AddSingleton<IConfigManager>(new ConfigManager("config.json", "config-schema.json"));
-
-        // Lấy tạm TimeProvider ra để cấu hình Serilog
-        var tempProvider = services.BuildServiceProvider().GetRequiredService<ITimeProvider>();
 
         // Cấu hình Serilog
         var logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
@@ -48,6 +49,19 @@ public static class Startup
         // Đăng ký vào DI
         services.AddSingleton<Serilog.ILogger>(serilogLogger);
         services.AddSingleton<IBotLogger, SerilogBotLogger>();
+
+        // Đăng ký FSM với trạng thái khởi tạo là Idle
+        services.AddSingleton<BotStateMachine>(sp =>
+        {
+            var logger = sp.GetRequiredService<IBotLogger>();
+            var fsm = new BotStateMachine(logger);
+            fsm.TransitionTo(BotState.Idle);
+            return fsm;
+        });
+
+        // Đăng ký MainWindow và ViewModel chính
+        services.AddTransient<MainViewModel>();
+        services.AddTransient<MainWindow>();
 
         // Đăng ký Tabs
         services.AddTransient<LogTab>();

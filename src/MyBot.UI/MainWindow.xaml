@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:MyBot.UI"
+        xmlns:viewmodels="clr-namespace:MyBot.UI.ViewModels"
         mc:Ignorable="d"
-        Title="MyBot"
+        Title="MyBot.run v1.0"
         Width="475"
         Height="650"
         WindowStyle="None"
@@ -29,7 +29,7 @@
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Column="0"
-                       Text="MyBot.run v1.0 (C#)"
+                       Text="MyBot.run v1.0"
                        FontSize="12"
                        Foreground="White"
                        VerticalAlignment="Center"
@@ -54,12 +54,83 @@
             </StackPanel>
         </Grid>
 
-        <!-- Row 1: Content Area -->
-        <TextBlock Grid.Row="1"
-                   Text="MyBot C# WPF - Initializing..."
-                   FontSize="24"
-                   Foreground="White"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center" />
+        <!-- Row 1: Content Area (Log Tab) -->
+        <TabControl Grid.Row="1"
+                    Background="#1E1E1E"
+                    BorderBrush="#2D2D30"
+                    BorderThickness="0,1,0,0">
+            <TabItem Header="Log"
+                     Background="#252526"
+                     Foreground="White">
+                <ListBox ItemsSource="{Binding LogMessages}"
+                         Background="#1E1E1E"
+                         Foreground="LightGreen"
+                         FontFamily="Consolas, Courier New"
+                         FontSize="12"
+                         BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto" />
+            </TabItem>
+        </TabControl>
+
+        <!-- Row 2: Bottom Panel -->
+        <Grid Grid.Row="2"
+              Background="#252526">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Cột trái: 3 nút điều khiển FSM -->
+            <StackPanel Grid.Column="0"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Margin="10,0,0,0">
+                <Button Content="START"
+                        Command="{Binding StartBotCommand}"
+                        Width="85"
+                        Height="45"
+                        Background="#5CAD85"
+                        Foreground="White"
+                        FontWeight="Bold"
+                        FontSize="13"
+                        BorderThickness="0"
+                        Margin="0,0,8,0" />
+                <Button Content="STOP"
+                        Command="{Binding StopBotCommand}"
+                        Width="85"
+                        Height="45"
+                        Background="#DB4D4D"
+                        Foreground="White"
+                        FontWeight="Bold"
+                        FontSize="13"
+                        BorderThickness="0"
+                        Margin="0,0,8,0" />
+                <Button Content="PAUSE"
+                        Command="{Binding PauseBotCommand}"
+                        Width="85"
+                        Height="45"
+                        Background="#FFA500"
+                        Foreground="White"
+                        FontWeight="Bold"
+                        FontSize="13"
+                        BorderThickness="0" />
+            </StackPanel>
+
+            <!-- Cột phải: Hiển thị trạng thái FSM -->
+            <StackPanel Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Margin="0,0,16,0">
+                <TextBlock Text="STATE"
+                           FontSize="10"
+                           Foreground="#888888"
+                           HorizontalAlignment="Right" />
+                <TextBlock Text="{Binding StatusText}"
+                           FontSize="20"
+                           FontWeight="Bold"
+                           Foreground="White"
+                           HorizontalAlignment="Right" />
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>
