@@ -29,71 +29,74 @@
 
     <Grid Margin="6,4">
         <Grid.ColumnDefinitions>
+            <!-- Cột 0: cụm nút điều khiển -->
             <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="Auto" />
+            <!-- Cột 1: hero shields + timer -->
             <ColumnDefinition Width="*" />
+            <!-- Cột 2: tài nguyên -->
+            <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
 
-        <!-- CỘT TRÁI: 4 NÚT ĐIỀU KHIỂN (T7.28) -->
+        <!-- CỘT 0: 4 NÚT ĐIỀU KHIỂN (T7.28) -->
         <StackPanel Grid.Column="0"
+                    Orientation="Vertical"
                     VerticalAlignment="Center"
                     Margin="0,0,6,0">
             <Button Content="{Binding StartButtonText}"
                     Command="{Binding StartBotCommand}"
                     IsEnabled="{Binding IsStartEnabled}"
                     Width="70"
-                    Height="28"
+                    Height="22"
                     Background="{StaticResource StartButtonColor}"
                     Foreground="White"
                     FontWeight="Bold"
                     FontSize="11"
                     BorderThickness="0"
-                    Margin="0,0,0,3" />
+                    Margin="0,0,0,5" />
             <Button Content="STOP"
                     Command="{Binding StopBotCommand}"
                     IsEnabled="{Binding IsStopEnabled}"
                     Width="70"
-                    Height="28"
+                    Height="22"
                     Background="{StaticResource StopButtonColor}"
                     Foreground="White"
                     FontWeight="Bold"
                     FontSize="11"
                     BorderThickness="0"
-                    Margin="0,0,0,3" />
-            <StackPanel Orientation="Horizontal">
-                <Button Content="PAUSE"
-                        Command="{Binding PauseBotCommand}"
-                        IsEnabled="{Binding IsPauseEnabled}"
-                        Width="70"
-                        Height="28"
-                        Background="{StaticResource PauseButtonColor}"
-                        Foreground="White"
-                        FontWeight="Bold"
-                        FontSize="11"
-                        BorderThickness="0"
-                        Margin="0,0,3,0" />
-                <Button Content="RESUME"
-                        Command="{Binding ResumeCommand}"
-                        IsEnabled="{Binding IsResumeEnabled}"
-                        Width="70"
-                        Height="28"
-                        Background="{StaticResource AccentColor}"
-                        Foreground="White"
-                        FontWeight="Bold"
-                        FontSize="11"
-                        BorderThickness="0" />
-            </StackPanel>
+                    Margin="0,0,0,5" />
+            <Button Content="PAUSE"
+                    Command="{Binding PauseBotCommand}"
+                    IsEnabled="{Binding IsPauseEnabled}"
+                    Width="70"
+                    Height="22"
+                    Background="{StaticResource PauseButtonColor}"
+                    Foreground="White"
+                    FontWeight="Bold"
+                    FontSize="11"
+                    BorderThickness="0"
+                    Margin="0,0,0,5" />
+            <Button Content="RESUME"
+                    Command="{Binding ResumeCommand}"
+                    IsEnabled="{Binding IsResumeEnabled}"
+                    Width="70"
+                    Height="22"
+                    Background="{StaticResource AccentColor}"
+                    Foreground="White"
+                    FontWeight="Bold"
+                    FontSize="11"
+                    BorderThickness="0" />
         </StackPanel>
 
         <!-- PHÂN CÁCH TRÁI-GIỮA -->
         <Rectangle Grid.Column="0" HorizontalAlignment="Right" Width="1" Fill="{StaticResource BorderControl}" Margin="0,5" />
 
-        <!-- CỘT GIỮA: HERO SHIELDS + TIMERS -->
+        <!-- CỘT 1: HERO SHIELDS + TIMERS -->
         <StackPanel Grid.Column="1"
                     VerticalAlignment="Center"
-                    Margin="6,0,6,0">
+                    HorizontalAlignment="Left"
+                    Margin="8,0,8,0">
             <!-- Hàng 1: 6 Hero Shields -->
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,0,0,6">
                 <Border Style="{StaticResource HeroBadgeStyle}" Background="{Binding KingState, Converter={StaticResource HeroStateToBrushConverter}}">
                     <TextBlock Text="K" Style="{StaticResource HeroTextStyle}" />
                 </Border>
@@ -115,12 +118,18 @@
             </StackPanel>
 
             <!-- Hàng 2: Lab Timer -->
-            <TextBlock FontSize="11" Foreground="{StaticResource ForegroundText}" Margin="0,0,0,2">
+            <TextBlock FontSize="11"
+                       Foreground="{StaticResource ForegroundText}"
+                       VerticalAlignment="Center"
+                       Margin="5,0">
                 <Run Text="🔬 Lab: " Foreground="#888888" /><Run Text="{Binding LabTime}" FontWeight="SemiBold" Foreground="{StaticResource ForegroundText}" />
             </TextBlock>
 
             <!-- Hàng 3: Pet Timer -->
-            <TextBlock FontSize="11" Foreground="{StaticResource ForegroundText}">
+            <TextBlock FontSize="11"
+                       Foreground="{StaticResource ForegroundText}"
+                       VerticalAlignment="Center"
+                       Margin="5,0">
                 <Run Text="🐾 Pet: " Foreground="#888888" /><Run Text="{Binding PetTime}" FontWeight="SemiBold" Foreground="{StaticResource ForegroundText}" />
             </TextBlock>
         </StackPanel>
@@ -128,38 +137,56 @@
         <!-- PHÂN CÁCH GIỮA-PHẢI -->
         <Rectangle Grid.Column="1" HorizontalAlignment="Right" Width="1" Fill="{StaticResource BorderControl}" Margin="0,5" />
 
-        <!-- CỘT PHẢI: TÀI NGUYÊN & TRẠNG THÁI -->
-        <Grid Grid.Column="2" VerticalAlignment="Center" Margin="6,0,2,0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+        <!-- CỘT 2: TÀI NGUYÊN (CĂN PHẢI) -->
+        <StackPanel Grid.Column="2"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Right"
+                    Margin="6,0,2,0">
+            <TextBlock FontSize="11"
+                       Foreground="{StaticResource ForegroundText}"
+                       VerticalAlignment="Center"
+                       Margin="5,0"
+                       TextAlignment="Right">
+                <Run Text="🟡 " FontSize="9" /><Run Text="Gold: " Foreground="{StaticResource GoldText}" /><Run Text="{Binding Gold, StringFormat={}{0:N0}}" Foreground="{StaticResource GoldText}" FontWeight="Bold" />
+            </TextBlock>
+            <TextBlock FontSize="11"
+                       Foreground="{StaticResource ForegroundText}"
+                       VerticalAlignment="Center"
+                       Margin="5,0"
+                       TextAlignment="Right">
+                <Run Text="🟣 " FontSize="9" /><Run Text="Elixir: " Foreground="{StaticResource ElixirText}" /><Run Text="{Binding Elixir, StringFormat={}{0:N0}}" Foreground="{StaticResource ElixirText}" FontWeight="Bold" />
+            </TextBlock>
+            <TextBlock FontSize="11"
+                       Foreground="{StaticResource ForegroundText}"
+                       VerticalAlignment="Center"
+                       Margin="5,0"
+                       TextAlignment="Right">
+                <Run Text="⚫ " FontSize="9" /><Run Text="DE: " Foreground="{StaticResource DarkElixirText}" /><Run Text="{Binding DarkElixir, StringFormat={}{0:N0}}" Foreground="{StaticResource DarkElixirText}" FontWeight="Bold" />
+            </TextBlock>
 
-            <!-- Hàng 1: Vàng, Dầu, DE -->
-            <StackPanel Grid.Row="0" Margin="0,0,0,6">
-                <TextBlock FontSize="11" Foreground="{StaticResource ForegroundText}" Margin="0,0,0,2">
-                    <Run Text="🟡 " FontSize="9" /><Run Text="Gold: " Foreground="{StaticResource GoldText}" /><Run Text="{Binding Gold, StringFormat={}{0:N0}}" Foreground="{StaticResource GoldText}" FontWeight="Bold" />
-                </TextBlock>
-                <TextBlock FontSize="11" Foreground="{StaticResource ForegroundText}" Margin="0,0,0,2">
-                    <Run Text="🟣 " FontSize="9" /><Run Text="Elixir: " Foreground="{StaticResource ElixirText}" /><Run Text="{Binding Elixir, StringFormat={}{0:N0}}" Foreground="{StaticResource ElixirText}" FontWeight="Bold" />
-                </TextBlock>
-                <TextBlock FontSize="11" Foreground="{StaticResource ForegroundText}">
-                    <Run Text="⚫ " FontSize="9" /><Run Text="DE: " Foreground="{StaticResource DarkElixirText}" /><Run Text="{Binding DarkElixir, StringFormat={}{0:N0}}" Foreground="{StaticResource DarkElixirText}" FontWeight="Bold" />
-                </TextBlock>
-            </StackPanel>
-
-            <!-- Hàng 2: Cúp, Thợ, Trạng thái -->
-            <WrapPanel Grid.Row="1">
-                <TextBlock FontSize="11" Foreground="{StaticResource ForegroundText}" Margin="0,0,8,0">
+            <WrapPanel HorizontalAlignment="Right" Margin="5,4,0,0">
+                <TextBlock FontSize="11"
+                           Foreground="{StaticResource ForegroundText}"
+                           VerticalAlignment="Center"
+                           Margin="5,0"
+                           TextAlignment="Right">
                     <Run Text="🏆 " FontSize="9" /><Run Text="{Binding Trophies}" FontWeight="SemiBold" />
                 </TextBlock>
-                <TextBlock FontSize="11" Foreground="{StaticResource ForegroundText}" Margin="0,0,8,0">
+                <TextBlock FontSize="11"
+                           Foreground="{StaticResource ForegroundText}"
+                           VerticalAlignment="Center"
+                           Margin="5,0"
+                           TextAlignment="Right">
                     <Run Text="🔨 " FontSize="9" /><Run Text="{Binding Builders}" FontWeight="SemiBold" /><Run Text="/5" Foreground="#888888" />
                 </TextBlock>
-                <TextBlock FontSize="11" Foreground="{StaticResource ForegroundText}" Margin="0,0,0,0">
+                <TextBlock FontSize="11"
+                           Foreground="{StaticResource ForegroundText}"
+                           VerticalAlignment="Center"
+                           Margin="5,0"
+                           TextAlignment="Right">
                     <Run Text="{Binding StatusText}" Foreground="{StaticResource ForegroundText}" FontWeight="Bold" />
                 </TextBlock>
             </WrapPanel>
-        </Grid>
+        </StackPanel>
     </Grid>
 </UserControl>

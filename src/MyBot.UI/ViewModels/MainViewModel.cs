@@ -40,6 +40,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IProcessRunner _processRunner;
     private readonly ITemplateMatcher _matcher;
     private readonly HumanDelay _delay;
+    private readonly IOcrEngine _ocrEngine;
 
     // T7.27: Đường dẫn ADB mặc định của MEmu (có thể chuyển sang ConfigManager sau).
     private readonly string _adbPath = @"F:\Microvirt\MEmu\adb.exe";
@@ -198,13 +199,15 @@ public partial class MainViewModel : ObservableObject
     /// <param name="processRunner">Bộ chạy tiến trình dùng cho ADB.</param>
     /// <param name="matcher">Bộ so khớp ảnh mẫu dùng cho harvest.</param>
     /// <param name="delay">Bộ sinh độ trễ mô phỏng hành vi người.</param>
+    /// <param name="ocrEngine">Bộ đọc chữ số từ ảnh (OCR).</param>
     public MainViewModel(
         BotStateMachine fsm,
         IBotLogger logger,
         IConfigManager configManager,
         IProcessRunner processRunner,
         ITemplateMatcher matcher,
-        HumanDelay delay)
+        HumanDelay delay,
+        IOcrEngine ocrEngine)
     {
         _fsm = fsm ?? throw new ArgumentNullException(nameof(fsm));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -212,6 +215,7 @@ public partial class MainViewModel : ObservableObject
         _processRunner = processRunner ?? throw new ArgumentNullException(nameof(processRunner));
         _matcher = matcher ?? throw new ArgumentNullException(nameof(matcher));
         _delay = delay ?? throw new ArgumentNullException(nameof(delay));
+        _ocrEngine = ocrEngine ?? throw new ArgumentNullException(nameof(ocrEngine));
 
         CurrentState = _fsm.CurrentState;
         StatusText = $"Status : {_fsm.CurrentState}";
@@ -484,6 +488,65 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
+    /// INT-2.5: Chụp màn hình MEmu, cắt vùng Vàng và đọc số bằng OCR.
+    /// </summary>
+    [RelayCommand]
+    private async Task ReadGoldAsync()
+    {
+        AddLog("Đang đọc số Vàng bằng OCR...");
+
+        try
+        {
+            await Task.Run(() =>
+            {
+                using var capture = new AdbScreencapCaptureBackend(_adbPath, _processRunner);
+                var target = new EmulatorTarget(AdbSerial: $"127.0.0.1:{AdbPort}");
+
+                if (!capture.Initialize(target))
+                {
+                    AddLog("LỖI: Không thể kết nối ADB tới MEmu. Hãy kiểm tra giả lập đã bật chưa.");
+                    return;
+                }
+
+                using var frame = capture.GrabFrame();
+                if (frame.Empty())
+                {
+                    AddLog("LỖI: Chụp ảnh thất bại (Mat rỗng).");
+                    return;
+                }
+
+                var goldRect = new OpenCvSharp.Rect(580, 20, 180, 32);
+                if (goldRect.Right > frame.Width || goldRect.Bottom > frame.Height)
+                {
+                    AddLog($"LỖI: Vùng Vàng {goldRect} vượt quá khung hình {frame.Width}x{frame.Height}.");
+                    return;
+                }
+
+                using var goldMat = new Mat(frame, goldRect);
+
+                string debugPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "gold_crop.png");
+                Cv2.ImWrite(debugPath, goldMat);
+                AddLog($"[DEBUG] Đã lưu ảnh vùng Vàng tại: {debugPath}");
+
+                string rawText = _ocrEngine.Recognize(goldMat);
+                if (int.TryParse(rawText, out int goldVal))
+                {
+                    Gold = goldVal;
+                    AddLog($"Đọc Vàng thành công: {Gold}");
+                }
+                else
+                {
+                    AddLog($"LỖI: OCR không đọc được số Vàng (raw='{rawText}').");
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            AddLog($"LỖI OCR: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// Nạp cấu hình từ file config.json vào các trường của Tab Bot.
     /// </summary>
     [RelayCommand]
@@ -539,6 +602,23 @@ public partial class MainViewModel : ObservableObject
         {
             AddLog($"Failed to save config: {ex.Message}");
         }
+    }
+
+    /// <summary>Xóa toàn bộ nhật ký trên giao diện.</summary>
+    [RelayCommand]
+    private void ClearLog() => LogMessages.Clear();
+
+    /// <summary>Sao chép toàn bộ nhật ký vào clipboard.</summary>
+    [RelayCommand]
+    private void CopyLog()
+    {
+        if (!LogMessages.Any())
+        {
+            return;
+        }
+
+        Clipboard.SetText(string.Join(Environment.NewLine, LogMessages));
+        AddLog("Đã copy log vào Clipboard.");
     }
 
     /// <summary>

@@ -38,6 +38,9 @@ public static class Startup
         services.AddSingleton<ITemplateMatcher, TemplateMatcher>();
         services.AddTransient<HumanDelay>();
 
+        // INT-2.5: OCR engine đọc số Vàng
+        services.AddSingleton<IOcrEngine, TesseractOcrEngine>();
+
         // Cấu hình Serilog
         var logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
         Directory.CreateDirectory(logDirectory); // Đảm bảo thư mục tồn tại
