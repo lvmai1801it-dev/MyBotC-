@@ -1,14 +1,14 @@
 # 🚀 MYBOT C# WPF - PROJECT PROGRESS & CONTEXT
 
-> **Cập nhật lần cuối:** Sau Task T4.3 (RedAreaScanner - Quét viền đỏ thả quân)
-> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1, T4.2, T4.3, T7.25, T7.26, T7.27 và T7.28.
-> **Tổng số Tests:** 133/133 PASS (130 Core + 1 CoC + 1 Integration + 1 UI).
-> **Commit gần nhất:** xem `git log -1` — `feat(T4.3): impl RedAreaScanner using OpenCV InRange`.
+> **Cập nhật lần cuối:** Sau Task T4.4 (RedAreaCleaner - Lọc nhiễu Dropline)
+> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1, T4.2, T4.3, T4.4, T7.25, T7.26, T7.27 và T7.28.
+> **Tổng số Tests:** 138/138 PASS (135 Core + 1 CoC + 1 Integration + 1 UI).
+> **Commit gần nhất:** xem `git log -1` — `feat(T4.4): impl RedAreaCleaner to remove outliers`.
 
 ## 1. TỔNG QUAN TIẾN ĐỘ
 - **Ngôn ngữ:** C# 12 / .NET 8 / WPF / MVVM (CommunityToolkit).
 - **Testing:** xUnit + FluentAssertions + Moq.
-- **Đã hoàn thành:** ~37 tasks / 148 tasks (~25%).
+- **Đã hoàn thành:** ~38 tasks / 148 tasks (~26%).
 - **Kiến trúc:** Clean Architecture, SOLID, Test-first.
 
 ## 2. CẤU TRÚC THƯ MỤC HIỆN TẠI
@@ -22,7 +22,7 @@
 - `src/MyBot.Game.CoC/` (StateClassifier; `Math/` - DiamondArea, DiamondAreaCalculator)
 - `src/MyBot.UI/` (MainWindow, 6 Tabs, ViewModels)
 - `src/MyBot.App/` (App.xaml, Startup.cs - DI Composition Root)
-- `tests/MyBot.Core.Tests/` (130 tests)
+- `tests/MyBot.Core.Tests/` (135 tests)
 - `AGENTS.md` (Luật sắt cho Antigravity Agent)
 
 ## 3. CÁC MODULE ĐÃ HOÀN THIỆN (ĐÃ CÓ TEST)
@@ -40,6 +40,7 @@
 12. **Diamond Area Geometry (T4.1):** `Point2D`, `DiamondArea` (8 điểm) và `DiamondAreaCalculator.Calculate(...)` port từ AutoIt `ConvertInternalExternArea()`; validate `innerLeft < innerRight` và `innerTop < innerBottom`, hỗ trợ offset không đối xứng cho 2 hình thoi Inner/Outer.
 13. **Diamond Containment (T4.2):** `IsPointInside(x, y, cx, cy, halfW, halfH)` dùng công thức `|dx|/W + |dy|/H <= 1.0` (biên tính là trong), ném `ArgumentException` nếu bán trục <= 0; `IsPointInsideArea(point, area)` suy ra tâm và bán trục từ 4 đỉnh `DiamondArea`.
 14. **Red Area Scanner (T4.3):** `RedAreaScanner.Scan(Mat)` dùng `Cv2.InRange` (BGR: B<60, G<60, R>150) + `Cv2.FindNonZero`, chia pixel đỏ vào 4 góc phần tư theo tâm frame; trả `RedAreaResult` với 4 list `Point2D`.
+15. **Red Area Cleaner (T4.4):** `RedAreaCleaner.Clean(points, maxDistance=25)` sắp xếp theo X rồi loại điểm có khoảng cách Euclid tới điểm giữ lại trước đó > ngưỡng; `CleanAll(result)` áp dụng cho cả 4 góc phần tư.
 
 ## 4. BÀI HỌC KINH NGHIỆM (LESSONS LEARNED)
 - **Flaky Tests:** Không dùng `Thread.Sleep`, luôn dùng `ITimeProvider`.
@@ -49,7 +50,7 @@
 - **FluentAssertions:** Dùng `.BeInRange(a,b)` thay vì `.BeBetween(a,b)`.
 
 ## 5. NHIỆM VỤ TIẾP THEO (TUẦN 2)
-- **Task ngay tiếp theo:** Phase 4 — module chọn điểm thả quân an toàn dùng `RedAreaScanner` + `DiamondAreaCalculator` (loại điểm đỏ, random trong diamond), hoặc Phase 3 — T3.2/T3.3 (tiền xử lý ảnh).
+- **Task ngay tiếp theo:** Phase 4 — module chọn điểm thả quân an toàn dùng `RedAreaScanner` + `RedAreaCleaner` + `DiamondAreaCalculator` (loại điểm đỏ, random trong diamond), hoặc Phase 3 — T3.2/T3.3 (tiền xử lý ảnh).
 - **Đã xong (T7.25):** Nối `ConfigManager` vào Tab Bot để Lưu/Đọc `config.json`.
 - **Mục tiêu tuần 2:** Bot có thể chụp ảnh MEmu, nhận diện màn hình Làng (Main Village) và hiển thị trạng thái lên UI.
 
