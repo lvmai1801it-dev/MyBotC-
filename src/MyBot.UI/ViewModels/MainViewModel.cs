@@ -10,8 +10,19 @@ using MyBot.Core.FSM;
 namespace MyBot.UI.ViewModels;
 
 /// <summary>
-/// ViewModel chính của ứng dụng, điều phối trạng thái FSM (Start, Stop, Pause)
-/// và hiển thị danh sách nhật ký trên giao diện.
+/// Trạng thái của Hero: Gray (không mang/chưa mở), Green (sẵn sàng), Blue (đang hồi máu), Red (bị thương/chết).
+/// </summary>
+public enum HeroState
+{
+    Gray,
+    Green,
+    Blue,
+    Red
+}
+
+/// <summary>
+/// ViewModel chính của ứng dụng, điều phối trạng thái FSM (Start, Stop, Pause),
+/// hiển thị tài nguyên, hero, timer và danh sách nhật ký trên giao diện.
 /// </summary>
 public partial class MainViewModel : ObservableObject
 {
@@ -23,6 +34,47 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private ObservableCollection<string> _logMessages = new();
+
+    // Tài nguyên & Thông số làng
+    [ObservableProperty]
+    private int _gold = 1234567;
+
+    [ObservableProperty]
+    private int _elixir = 850000;
+
+    [ObservableProperty]
+    private int _darkElixir = 12345;
+
+    [ObservableProperty]
+    private int _trophies = 3200;
+
+    [ObservableProperty]
+    private int _builders = 3;
+
+    [ObservableProperty]
+    private string _labTime = "1d 4h";
+
+    [ObservableProperty]
+    private string _petTime = "Finished";
+
+    // Trạng thái 6 Heroes
+    [ObservableProperty]
+    private HeroState _kingState = HeroState.Green;
+
+    [ObservableProperty]
+    private HeroState _queenState = HeroState.Blue;
+
+    [ObservableProperty]
+    private HeroState _princeState = HeroState.Gray;
+
+    [ObservableProperty]
+    private HeroState _wardenState = HeroState.Gray;
+
+    [ObservableProperty]
+    private HeroState _championState = HeroState.Gray;
+
+    [ObservableProperty]
+    private HeroState _dukeState = HeroState.Gray;
 
     /// <summary>
     /// Khởi tạo ViewModel với máy trạng thái FSM và logger.
@@ -46,7 +98,7 @@ public partial class MainViewModel : ObservableObject
 
             if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
             {
-                dispatcher.InvokeAsync(OnStateChanged);
+                _ = dispatcher.InvokeAsync(OnStateChanged);
             }
             else
             {
@@ -60,7 +112,8 @@ public partial class MainViewModel : ObservableObject
     private bool CanPause => _fsm.CurrentState == BotState.Searching;
 
     /// <summary>
-    /// Bắt đầu chạy bot: chuyển từ Idle -> Starting -> Searching sau 2 giây.
+    /// Bắt đầu chạy bot: chuyển từ Idle -> Starting -> Searching sau 2 giây,
+    /// kèm vòng lặp giả lập tăng tài nguyên và hồi phục Hero.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanStart))]
     private async Task StartBot()
@@ -69,6 +122,42 @@ public partial class MainViewModel : ObservableObject
 
         _fsm.TransitionTo(BotState.Starting);
         AddLog("Bot Started");
+
+        // Vòng lặp giả lập tài nguyên & trạng thái Hero
+        _ = Task.Run(async () =>
+        {
+            var rng = new Random();
+            int ticks = 0;
+            while (_fsm.CurrentState != BotState.Idle)
+            {
+                await Task.Delay(1000);
+                if (_fsm.CurrentState == BotState.Idle) break;
+
+                ticks++;
+                int goldDelta = rng.Next(1000, 5001);
+                int elixirDelta = rng.Next(1000, 5001);
+
+                void UpdateUI()
+                {
+                    Gold += goldDelta;
+                    Elixir += elixirDelta;
+                    if (ticks >= 3 && QueenState == HeroState.Blue)
+                    {
+                        QueenState = HeroState.Green;
+                        AddLog("Queen has recovered!");
+                    }
+                }
+
+                if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
+                {
+                    _ = dispatcher.InvokeAsync(UpdateUI);
+                }
+                else
+                {
+                    UpdateUI();
+                }
+            }
+        });
 
         await Task.Delay(2000);
 
@@ -120,7 +209,7 @@ public partial class MainViewModel : ObservableObject
 
         if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
         {
-            dispatcher.InvokeAsync(Update);
+            _ = dispatcher.InvokeAsync(Update);
         }
         else
         {
@@ -139,7 +228,7 @@ public partial class MainViewModel : ObservableObject
 
         if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
         {
-            dispatcher.InvokeAsync(() => LogMessages.Insert(0, formatted));
+            _ = dispatcher.InvokeAsync(() => LogMessages.Insert(0, formatted));
         }
         else
         {

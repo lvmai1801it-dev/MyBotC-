@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:viewmodels="clr-namespace:MyBot.UI.ViewModels"
+        xmlns:views="clr-namespace:MyBot.UI.Views"
         mc:Ignorable="d"
         Title="MyBot.run v1.0"
         Width="475"
@@ -73,64 +74,7 @@
             </TabItem>
         </TabControl>
 
-        <!-- Row 2: Bottom Panel -->
-        <Grid Grid.Row="2"
-              Background="#252526">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <!-- Cột trái: 3 nút điều khiển FSM -->
-            <StackPanel Grid.Column="0"
-                        Orientation="Horizontal"
-                        VerticalAlignment="Center"
-                        Margin="10,0,0,0">
-                <Button Content="START"
-                        Command="{Binding StartBotCommand}"
-                        Width="85"
-                        Height="45"
-                        Background="#5CAD85"
-                        Foreground="White"
-                        FontWeight="Bold"
-                        FontSize="13"
-                        BorderThickness="0"
-                        Margin="0,0,8,0" />
-                <Button Content="STOP"
-                        Command="{Binding StopBotCommand}"
-                        Width="85"
-                        Height="45"
-                        Background="#DB4D4D"
-                        Foreground="White"
-                        FontWeight="Bold"
-                        FontSize="13"
-                        BorderThickness="0"
-                        Margin="0,0,8,0" />
-                <Button Content="PAUSE"
-                        Command="{Binding PauseBotCommand}"
-                        Width="85"
-                        Height="45"
-                        Background="#FFA500"
-                        Foreground="White"
-                        FontWeight="Bold"
-                        FontSize="13"
-                        BorderThickness="0" />
-            </StackPanel>
-
-            <!-- Cột phải: Hiển thị trạng thái FSM -->
-            <StackPanel Grid.Column="1"
-                        VerticalAlignment="Center"
-                        Margin="0,0,16,0">
-                <TextBlock Text="STATE"
-                           FontSize="10"
-                           Foreground="#888888"
-                           HorizontalAlignment="Right" />
-                <TextBlock Text="{Binding StatusText}"
-                           FontSize="20"
-                           FontWeight="Bold"
-                           Foreground="White"
-                           HorizontalAlignment="Right" />
-            </StackPanel>
-        </Grid>
+        <!-- Row 2: Bottom Panel (UserControl) -->
+        <views:BottomPanelView Grid.Row="2" />
     </Grid>
 </Window>
