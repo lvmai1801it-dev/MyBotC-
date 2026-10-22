@@ -46,7 +46,12 @@ public partial class MainViewModel : ObservableObject
     private readonly HumanDelay _delay;
     private readonly IOcrEngine _ocrEngine;
     private readonly IEmulatorDriver _emulatorDriver;
-    private readonly MainScreenGuard _mainScreenGuard = new();
+    private readonly ITimeProvider _time;
+    private readonly MainScreenGuard _mainScreenGuard;
+    private readonly CameraZoomer _cameraZoomer;
+
+    // Chỉ log kích thước frame một lần để cảnh báo sớm nếu độ phân giải giả lập sai.
+    private bool _frameSizeLogged;
 
     // CORE-LOOP-FINAL: vòng lặp bot chạy nền và khóa profile dùng chung giữa các tiến trình.
     private CancellationTokenSource? _botCts;
@@ -234,6 +239,7 @@ public partial class MainViewModel : ObservableObject
     /// <param name="delay">Bộ sinh độ trễ mô phỏng hành vi người.</param>
     /// <param name="ocrEngine">Bộ đọc chữ số từ ảnh (OCR).</param>
     /// <param name="emulatorDriver">Driver tìm cửa sổ giả lập và tạo capture/input backend.</param>
+    /// <param name="time">Nguồn thời gian dùng cho zoom và vòng phục hồi màn hình.</param>
     public MainViewModel(
         BotStateMachine fsm,
         IBotLogger logger,
@@ -242,7 +248,8 @@ public partial class MainViewModel : ObservableObject
         ITemplateMatcher matcher,
         HumanDelay delay,
         IOcrEngine ocrEngine,
-        IEmulatorDriver emulatorDriver)
+        IEmulatorDriver emulatorDriver,
+        ITimeProvider time)
     {
         _fsm = fsm ?? throw new ArgumentNullException(nameof(fsm));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -252,6 +259,11 @@ public partial class MainViewModel : ObservableObject
         _delay = delay ?? throw new ArgumentNullException(nameof(delay));
         _ocrEngine = ocrEngine ?? throw new ArgumentNullException(nameof(ocrEngine));
         _emulatorDriver = emulatorDriver ?? throw new ArgumentNullException(nameof(emulatorDriver));
+        _time = time ?? throw new ArgumentNullException(nameof(time));
+
+        // Nạp ảnh mẫu reconnect/Builder Base nếu có; thiếu ảnh thì guard chỉ kiểm tra pixel.
+        _mainScreenGuard = MainScreenGuard.Create(_matcher, _logger);
+        _cameraZoomer = new CameraZoomer(_time);
 
         CurrentState = _fsm.CurrentState;
         StatusText = $"Status : {_fsm.CurrentState}";
@@ -342,6 +354,8 @@ public partial class MainViewModel : ObservableObject
         CancellationToken token = cts.Token;
         ProfileLock? ownedLock = _profileLock;
         ICaptureBackend? capture = null;
+        IInputBackend? input = null;
+        IAndroidDeviceController? device = null;
 
         AddLog("[Loop] Khởi động Bot...");
 
@@ -352,7 +366,8 @@ public partial class MainViewModel : ObservableObject
             ICaptureBackend captureBackend = new AdbScreencapCaptureBackend(_adbPath, _processRunner);
             capture = captureBackend;
 
-            var adbTarget = new EmulatorTarget(AdbSerial: $"127.0.0.1:{AdbPort}");
+            string adbSerial = $"127.0.0.1:{AdbPort}";
+            var adbTarget = new EmulatorTarget(AdbSerial: adbSerial);
 
             if (!captureBackend.Initialize(adbTarget))
             {
@@ -385,13 +400,43 @@ public partial class MainViewModel : ObservableObject
                     throw new InvalidOperationException(
                         "Không khởi tạo được bộ chụp màn hình (ADB và GDI đều thất bại).");
                 }
+
+                IInputBackend windowInput = _emulatorDriver.CreateInputBackend();
+                if (windowInput.Initialize(windowTarget))
+                {
+                    input = windowInput;
+                }
+                else
+                {
+                    windowInput.Dispose();
+                    AddLog("[Loop] Không khởi tạo được input qua cửa sổ — bỏ qua zoom.");
+                }
             }
+            else
+            {
+                // ADB input dùng cho zoom (input roll); đầu vào ADB cũng cần cho recovery.
+                var adbInput = new AdbInputBackend(_adbPath, _processRunner);
+                if (adbInput.Initialize(adbTarget))
+                {
+                    input = adbInput;
+                }
+                else
+                {
+                    adbInput.Dispose();
+                    AddLog("[Loop] Không khởi tạo được ADB input — bỏ qua zoom.");
+                }
+
+                device = new AdbAndroidDeviceController(_adbPath, _processRunner, adbSerial);
+            }
+
+            var recovery = new MainScreenRecovery(_mainScreenGuard, _time, _logger, device);
 
             AddLog("Đã khởi tạo bộ chụp màn hình.");
             _fsm.TransitionTo(BotState.Searching);
             AddLog($"Bot đang chạy (chu kỳ {PollIntervalMs}ms).");
 
             bool? lastMainScreen = null;
+            bool? lastBuilderBase = null;
 
             while (!token.IsCancellationRequested)
             {
@@ -416,6 +461,31 @@ public partial class MainViewModel : ObservableObject
                     continue;
                 }
 
+                LogFrameSizeOnce(frame);
+
+                // FIX-GUARD: chỉ nhận diện Builder Base bằng template. Pixel mốc (844,65)
+                // chỉ dùng khi đã biết chắc đang ở BB, nếu dùng trên Main Village dễ nhận nhầm.
+                bool onBuilderBase = _mainScreenGuard.BuilderBaseTemplateEnabled
+                    && _mainScreenGuard.IsBuilderBase(frame);
+
+                if (onBuilderBase)
+                {
+                    if (lastBuilderBase != true)
+                    {
+                        AddLog("Phát hiện Builder Base — bot chưa hỗ trợ chuyển về Main Village.");
+                        lastBuilderBase = true;
+                    }
+
+                    lastMainScreen = false;
+                    await Task.Delay(PollIntervalMs, token);
+                    continue;
+                }
+
+                if (lastBuilderBase == true)
+                {
+                    lastBuilderBase = false;
+                }
+
                 bool isMainScreen = _mainScreenGuard.IsMainScreen(frame);
 
                 if (!isMainScreen)
@@ -430,14 +500,59 @@ public partial class MainViewModel : ObservableObject
                         lastMainScreen = false;
                     }
 
-                    await Task.Delay(PollIntervalMs, token);
-                    continue;
+                    // Vòng phục hồi: chờ mạng, restart CoC, chờ màn hình làng, reboot Android.
+                    MainScreenLocationResult location = await recovery.LocateAsync(
+                        captureBackend,
+                        builderBase: false,
+                        token);
+
+                    if (!location.Located)
+                    {
+                        if (location.Cancelled)
+                        {
+                            AddLog("[Loop] Đã dừng khi đang chờ màn hình làng chính.");
+                        }
+                        else
+                        {
+                            AddLog($"LỖI: {location.Reason}");
+                            TryTransitionTo(BotState.Error);
+                        }
+
+                        return;
+                    }
                 }
 
                 if (lastMainScreen != true)
                 {
                     AddLog("Đã nhận diện màn hình làng chính.");
                     lastMainScreen = true;
+
+                    // ZoomOut chuẩn hoá camera trước khi OCR (toạ độ hiệu chỉnh ở zoom chuẩn).
+                    if (input is not null)
+                    {
+                        bool zoomedOut = await _cameraZoomer.ZoomOutAsync(input, token);
+                        if (!zoomedOut)
+                        {
+                            AddLog("[Loop] Không thể zoom out — backend input không hỗ trợ con lăn.");
+                        }
+
+                        await _time.DelayAsync(500, token);
+                    }
+
+                    // Chụp lại sau zoom để OCR đúng khung hình đã chuẩn hoá.
+                    using Mat locatedFrame = captureBackend.GrabFrame();
+                    if (!locatedFrame.Empty())
+                    {
+                        LogFrameSizeOnce(locatedFrame);
+                        UpdateResourcesFromFrame(locatedFrame);
+                    }
+                    else
+                    {
+                        AddLog("LỖI: Không chụp được khung hình sau khi nhận diện làng chính.");
+                    }
+
+                    await Task.Delay(PollIntervalMs, token);
+                    continue;
                 }
 
                 UpdateResourcesFromFrame(frame);
@@ -457,6 +572,7 @@ public partial class MainViewModel : ObservableObject
         }
         finally
         {
+            input?.Dispose();
             capture?.Dispose();
             FinishBotLoop();
             ReleaseProfileLock(ownedLock);
@@ -473,22 +589,50 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// In màu thực tế tại pixel mốc để chẩn đoán vì sao <see cref="MainScreenGuard"/> trả về false.
+    /// Log kích thước frame một lần để cảnh báo nếu giả lập không chạy đúng độ phân giải 860x732.
     /// </summary>
     /// <param name="frame">Khung hình vừa chụp.</param>
-    private void LogMarkerPixel(Mat frame)
+    private void LogFrameSizeOnce(Mat frame)
     {
-        if (_mainScreenGuard.TryGetMarkerColor(frame, out Vec3b pixel))
+        if (_frameSizeLogged || frame.Empty())
         {
-            AddLog(
-                $"[Loop] Pixel ({MarkerPixelX},{MarkerPixelY}) - B:{pixel.Item0}, G:{pixel.Item1}, R:{pixel.Item2} " +
-                "| target B:255 G:65 R:255 ±20");
+            return;
+        }
+
+        _frameSizeLogged = true;
+
+        if (MainScreenGuard.IsExpectedFrameSize(frame))
+        {
+            AddLog($"[Loop] Khung hình chuẩn {frame.Width}x{frame.Height}.");
         }
         else
         {
             AddLog(
-                $"[Loop] Không đọc được pixel mốc: frame {frame.Width}x{frame.Height}, " +
-                $"channels={frame.Channels()} (cần >= 850x60 và 3 kênh màu).");
+                $"CẢNH BÁO: khung hình {frame.Width}x{frame.Height} khác 860x732 — " +
+                "toạ độ pixel/OCR có thể sai. Kiểm tra độ phân giải giả lập.");
+        }
+    }
+
+    /// <summary>
+    /// In kích thước frame và màu thực tế tại pixel mốc để chẩn đoán
+    /// vì sao <see cref="MainScreenGuard"/> trả về false.
+    /// </summary>
+    /// <param name="frame">Khung hình vừa chụp.</param>
+    private void LogMarkerPixel(Mat frame)
+    {
+        string frameInfo = $"frame {frame.Width}x{frame.Height}, channels={frame.Channels()}";
+
+        if (_mainScreenGuard.TryGetMarkerColor(frame, out Vec3b pixel))
+        {
+            AddLog(
+                $"[Loop] {frameInfo} | Pixel ({MarkerPixelX},{MarkerPixelY}) - " +
+                $"B:{pixel.Item0}, G:{pixel.Item1}, R:{pixel.Item2} | target B:255 G:65 R:255 ±20");
+        }
+        else
+        {
+            AddLog(
+                $"[Loop] {frameInfo} | Không đọc được pixel mốc " +
+                $"(cần > {MarkerPixelX}x{MarkerPixelY} và 3 kênh màu).");
         }
     }
 

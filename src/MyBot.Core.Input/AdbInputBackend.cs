@@ -82,15 +82,33 @@ public class AdbInputBackend : IInputBackend
         RunAdbShell($"input swipe {x1} {y1} {x2} {y2} {durationMs}");
     }
 
-    private void RunAdbShell(string shellCommand)
+    /// <summary>
+    /// Gửi thao tác con lăn qua <c>input roll</c> (Android 11+). Đây là cách duy nhất
+    /// ADB hỗ trợ zoom; máy Android cũ sẽ trả false để caller biết zoom không khả dụng.
+    /// </summary>
+    /// <param name="x">Toạ độ X (không dùng — roll là lệnh toàn cục).</param>
+    /// <param name="y">Toạ độ Y (không dùng — roll là lệnh toàn cục).</param>
+    /// <param name="delta">Độ lớn con lăn; âm = lăn xuống (zoom out).</param>
+    /// <returns>True nếu thiết bị chấp nhận lệnh.</returns>
+    public bool Scroll(int x, int y, int delta)
+    {
+        if (!_isReady)
+        {
+            return false;
+        }
+
+        return RunAdbShell($"input roll 0 {delta}");
+    }
+
+    private bool RunAdbShell(string shellCommand)
     {
         try
         {
-            _processRunner.Run(_adbPath, $"-s {_adbSerial} shell {shellCommand}", timeoutMs: 2000);
+            return _processRunner.Run(_adbPath, $"-s {_adbSerial} shell {shellCommand}", timeoutMs: 2000).IsSuccess;
         }
         catch
         {
-            // Swallow exceptions hoặc log
+            return false;
         }
     }
 

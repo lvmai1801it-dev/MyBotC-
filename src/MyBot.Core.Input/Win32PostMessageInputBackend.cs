@@ -14,9 +14,20 @@ public class Win32PostMessageInputBackend : IInputBackend
     [DllImport("user32.dll")]
     private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
+    [DllImport("user32.dll")]
+    private static extern bool ClientToScreen(IntPtr hWnd, ref POINT lpPoint);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
     private const uint WM_LBUTTONDOWN = 0x0201;
     private const uint WM_LBUTTONUP = 0x0202;
     private const uint WM_MOUSEMOVE = 0x0200;
+    private const uint WM_MOUSEWHEEL = 0x020A;
     private const int MK_LBUTTON = 0x0001;
 
     private readonly ITimeProvider _time;
@@ -84,6 +95,27 @@ public class Win32PostMessageInputBackend : IInputBackend
         }
 
         PostMessage(_hWnd, WM_LBUTTONUP, IntPtr.Zero, endLParam);
+    }
+
+    /// <summary>
+    /// Gửi một nấc con lăn chuột tới cửa sổ game. Dùng để zoom out camera
+    /// (<c>ZoomOut()</c> của bản AutoIt) mà không chiếm chuột thật.
+    /// </summary>
+    /// <param name="x">Toạ độ X theo vùng client của cửa sổ.</param>
+    /// <param name="y">Toạ độ Y theo vùng client của cửa sổ.</param>
+    /// <param name="delta">Độ lớn con lăn; âm = lăn xuống (zoom out).</param>
+    /// <returns>True nếu thông điệp được gửi thành công.</returns>
+    public bool Scroll(int x, int y, int delta)
+    {
+        if (_hWnd == IntPtr.Zero) return false;
+
+        // WM_MOUSEWHEEL yêu cầu toạ độ màn hình trong lParam.
+        var point = new POINT { X = x, Y = y };
+        ClientToScreen(_hWnd, ref point);
+
+        IntPtr wParam = (IntPtr)(delta << 16);
+        IntPtr lParam = MakeLParam(point.X, point.Y);
+        return PostMessage(_hWnd, WM_MOUSEWHEEL, wParam, lParam);
     }
 
     /// <summary>Đóng gói toạ độ (x, y) thành lParam cho thông điệp chuột của Win32.</summary>

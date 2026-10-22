@@ -10,6 +10,15 @@ namespace MyBot.Core.Input;
 /// </summary>
 public class MockInputBackend : IInputBackend
 {
+    /// <summary>Một hành động con lăn đã được ghi lại.</summary>
+    /// <param name="X">Toạ độ X.</param>
+    /// <param name="Y">Toạ độ Y.</param>
+    /// <param name="Delta">Độ lớn con lăn (âm = zoom out).</param>
+    public record ScrollAction(int X, int Y, int Delta);
+
+    /// <summary>Danh sách các nấc con lăn đã ghi lại.</summary>
+    public List<ScrollAction> ScrollActions { get; } = new();
+
     /// <summary>Một hành động input đã được ghi lại.</summary>
     /// <param name="Type">Loại hành động ("Tap" hoặc "Swipe").</param>
     /// <param name="X1">Toạ độ X điểm bắt đầu.</param>
@@ -50,10 +59,22 @@ public class MockInputBackend : IInputBackend
         RecordedActions.Add(new RecordedAction("Swipe", x1, y1, x2, y2, durationMs, DateTime.UtcNow));
     }
 
+    /// <summary>Ghi lại một nấc con lăn chuột.</summary>
+    /// <param name="x">Toạ độ X.</param>
+    /// <param name="y">Toạ độ Y.</param>
+    /// <param name="delta">Độ lớn con lăn.</param>
+    /// <returns>Luôn trả về True.</returns>
+    public bool Scroll(int x, int y, int delta)
+    {
+        ScrollActions.Add(new ScrollAction(x, y, delta));
+        return true;
+    }
+
     /// <summary>Xoá toàn bộ danh sách hành động đã ghi.</summary>
     public void Clear()
     {
         RecordedActions.Clear();
+        ScrollActions.Clear();
     }
 
     /// <summary>Không có tài nguyên nào cần giải phóng.</summary>

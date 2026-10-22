@@ -1,14 +1,14 @@
 # 🚀 MYBOT C# WPF - PROJECT PROGRESS & CONTEXT
 
-> **Cập nhật lần cuối:** Sau Task CORE-LOOP-FINAL (Skeleton bot loop: Start, ProfileLock, PixelGuard, WindowNormalize)
-> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1–T4.8, T4.R, T5.1 (tối giản), INT-1, INT-1.1, INT-2.5, FIX-INT2, FIX-OCR-2, FIX-OCR-4, FIX-OCR-6, FIX-OCR-7, INT-OCR-NATIVE, FIX-OCR-NATIVE, INT-3, T7.25, T7.26, T7.27, T7.28 và CORE-LOOP-FINAL.
-> **Tổng số Tests:** 166/166 PASS (163 Core + 1 CoC + 1 Integration + 1 UI).
-> **Commit gần nhất:** xem `git log -1` — `fix(OCR): calibrate resource rects for 860x732 frame`.
+> **Cập nhật lần cuối:** Sau Task CORE-RECOVERY (Main Screen reconnect/Builder Base, ZoomOut, recovery loop)
+> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1–T4.8, T4.R, T5.1 (tối giản), INT-1, INT-1.1, INT-2.5, FIX-INT2, FIX-OCR-2, FIX-OCR-4, FIX-OCR-6, FIX-OCR-7, INT-OCR-NATIVE, FIX-OCR-NATIVE, INT-3, T7.25, T7.26, T7.27, T7.28, CORE-LOOP-FINAL và CORE-RECOVERY.
+> **Tổng số Tests:** 190/190 PASS (187 Core + 1 CoC + 1 Integration + 1 UI).
+> **Commit gần nhất:** xem `git log -1` — `feat(core): port Main Screen reconnect, Builder Base and recovery loop`.
 
 ## 1. TỔNG QUAN TIẾN ĐỘ
 - **Ngôn ngữ:** C# 12 / .NET 8 / WPF / MVVM (CommunityToolkit).
 - **Testing:** xUnit + FluentAssertions + Moq.
-- **Đã hoàn thành:** ~44 tasks / 148 tasks (~30%).
+- **Đã hoàn thành:** ~45 tasks / 148 tasks (~30%).
 - **Kiến trúc:** Clean Architecture, SOLID, Test-first.
 
 ## 2. CẤU TRÚC THƯ MỤC HIỆN TẠI
@@ -19,10 +19,10 @@
 - `src/MyBot.Core.ActionContract/` (DAV Executor, VisualAssertion)
 - `src/MyBot.Core.AntiBan/` (HumanDelay, BezierPath, BoundingBoxClick, CoordinateHistory, MicroBreak, Circadian, BehavioralProfile)
 - `src/MyBot.Core.CV/` (TemplateMatcher, DigitOcrEngine, MyBotNativeOcrEngine - OpenCV + native MyBot.run.dll)
-- `src/MyBot.Game.CoC/` (StateClassifier; `Math/` - geometry, red area, dropline, classifier; `Detection/` - StorageDetector; `Village/` - CollectorHarvester)
+- `src/MyBot.Game.CoC/` (StateClassifier; `State/` - ScreenCode, MainScreenGuard, CameraZoomer, MainScreenRecovery; `Math/` - geometry, red area, dropline, classifier; `Detection/` - StorageDetector; `Village/` - CollectorHarvester)
 - `src/MyBot.UI/` (MainWindow, 6 Tabs, ViewModels)
 - `src/MyBot.App/` (App.xaml, Startup.cs - DI Composition Root)
-- `tests/MyBot.Core.Tests/` (153 tests)
+- `tests/MyBot.Core.Tests/` (187 tests)
 - `AGENTS.md` (Luật sắt cho Antigravity Agent)
 
 ## 3. CÁC MODULE ĐÃ HOÀN THIỆN (ĐÃ CÓ TEST)
@@ -61,6 +61,7 @@
 33. **Hiệu chỉnh toạ độ tài nguyên (INT-3.1):** đo lại trên ảnh chụp MEmu **860x732**: DE mở rộng `(643,87,205,32)` để không mất chữ số cuối; Gems đổi sang `(752,127,62,27)` (viên ngọc xanh dưới thanh DE, trước đây tràn khỏi khung 860); Builders tách thành 2 ô số `(754,599,11,24)` + `(775,599,17,24)` vì model mặc định `coc-ms` đọc `1/4` thành `1-# 1-`; dùng model chuyên dụng `coc-Builders` cho từng ô → `1` và `4`, ghép lại `BuilderText = "1/4"`. `IOcrEngine` có thêm overload `Recognize(Mat, string model)` (default implementation nên engine fallback không phải sửa). Gold/Elixir/DE/Gems đọc đúng: `6 253 000`, `4 817 251`, `80 549`, `70`.
 34. **Native OCR (INT-OCR-NATIVE):** thêm `MyBotNativeOcrEngine` gọi trực tiếp `MyBot.run.dll` gốc (module 32-bit) qua P/Invoke: `ocr` (đồng bộ) và `DoOCR` + `GetAsyncResult` (ImgLoc, bất đồng bộ). Copy `native/lib` (DLL + 90 file `listSymbols_*.xml` + 6 `.imglocdat`) ra `lib` cạnh exe; `MyBot.App` chuyển `PlatformTarget=x86`, test host `MyBot.Core.Tests` cũng x86. `Startup` ưu tiên engine native, fallback `DigitOcrEngine`. Build 0w/0e, 156/156 test PASS. Cần chạy thử **Read Gold** với MEmu thật để xác nhận vùng cắt và model `coc-ms`.
 35. **Skeleton Bot Loop (CORE-LOOP-FINAL):** `MainScreenGuard` kiểm tra pixel mốc `(840,53)` BGR `(255,65,255)` dung sai 20; `Win32WindowNormalizer` ép cửa sổ render về 860x732; `ProfileLock` named Mutex `Global\MyBot.Profile.*` chống chạy trùng profile; `WindowsEmulatorDriver` (Core.Capture) tìm cửa sổ render và tạo GDI/PostMessage backend (`EmulatorFinder` chuyển từ App sang Core.Capture). `StartBot`/`StopBot` dùng `CancellationTokenSource` + vòng lặp nền `BotLoopAsync`: tìm cửa sổ → resize → capture → MainScreenGuard → OCR tài nguyên mỗi 2s; finally đưa FSM về Idle và nhả khóa. Pause/Resume được vòng lặp tôn trọng. Đã đối chiếu ảnh thật: pixel `(840,53)` = RGB(255,67,255) → BGR(255,67,255), khớp `0xFF41FF` (0xRRGGBB) với dung sai 20. 166/166 test PASS.
+36. **Main Screen Recovery (CORE-RECOVERY):** `ScreenCode`/`ScreenCodes` gom mã pixel dạng `0xRRGGBB` + so khớp BGR có dung sai (`MainVillage 840,53,0xFF41FF,20`; `BuilderBase 844,65,0x992EFC,15`). `MainScreenGuard` giờ trả true khi pixel khớp **và** không có overlay reconnect (`CocReconnecting.png`, vùng `(420,355,20,20)` = `420,325 + MidOffsetY 30`); thêm `IsBuilderBase` (pixel + template `IsOnBuilderBase.png`, vùng `(750,570,80,60)`), `IsCurrentScreen`, `IsExpectedFrameSize` (860x732) và log cảnh báo khi thiếu asset (chỉ tắt đúng tính năng đó). `CameraZoomer.ZoomOutAsync` lăn chuột 5 nấc `-120` tại tâm `(430,366)`; `IInputBackend` có thêm `Scroll` (Win32 `WM_MOUSEWHEEL` + `ClientToScreen`, ADB `input roll` best-effort, Mock ghi lại). `IAndroidDeviceController` + `AdbAndroidDeviceController` chạy `am force-stop` → `monkey` để mở lại CoC và `reboot` thiết bị. `MainScreenRecovery.LocateAsync` port `checkObstacles_Network`/`waitMainScreen`: kiểm tra mỗi 1s, timeout reconnect 60s → restart CoC (3 lần) → reboot Android (2 lần), restart sau 20 lần sai, bỏ cuộc sau 3 chu kỳ; hỗ trợ `CancellationToken`. `MainViewModel` dùng recovery khi mất màn hình làng, zoom out + chụp lại sau khi vào làng, cảnh báo nếu frame không phải 860x732. Build 0w/0e, 190/190 test PASS (chạy 2 lần liên tiếp).
 
 ## 4. BÀI HỌC KINH NGHIỆM (LESSONS LEARNED)
 - **Flaky Tests:** Không dùng `Thread.Sleep`, luôn dùng `ITimeProvider`.
@@ -71,7 +72,7 @@
 - **OCR native:** Engine gốc trả số có dấu cách (`6 253 000`); luôn lọc `[^\d]` trước khi parse.
 
 ## 5. NHIỆM VỤ TIẾP THEO (TUẦN 2)
-- **Task ngay tiếp theo:** Chạy lại **Read Resources** để xác nhận `BuilderText = "1/4"` trên app (2 ô số đã được kiểm chứng offline bằng `ocrprobe` với model `coc-Builders`); sau đó bổ sung Unit Test cho T5.1 và ghép T4.1–T4.8 thành module chọn điểm thả quân an toàn.
+- **Task ngay tiếp theo:** Bổ sung asset `CocReconnecting.png` và `IsOnBuilderBase.png` (thư mục `assets/` cạnh exe) để bật nhận diện reconnect/Builder Base; chạy thử **Start Bot** trên MEmu thật để xác nhận `ZoomOut` (`input roll` cần Android 11+) và kịch bản recovery khi mất màn hình làng. Sau đó chạy lại **Read Resources** để xác nhận `BuilderText = "1/4"` và bổ sung Unit Test cho T5.1.
 - **Đã xong (T7.25):** Nối `ConfigManager` vào Tab Bot để Lưu/Đọc `config.json`.
 - **Mục tiêu tuần 2:** Bot có thể chụp ảnh MEmu, nhận diện màn hình Làng (Main Village) và hiển thị trạng thái lên UI.
 
