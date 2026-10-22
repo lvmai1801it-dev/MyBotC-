@@ -562,21 +562,31 @@ public partial class MainViewModel : ObservableObject
                 var elixirRect = new OpenCvSharp.Rect(643, 53, 200, 32);
                 var darkElixirRect = new OpenCvSharp.Rect(643, 87, 205, 32);
                 var gemsRect = new OpenCvSharp.Rect(752, 127, 62, 27);
-                var buildersRect = new OpenCvSharp.Rect(754, 599, 38, 24);
+                // Bộ đếm "1/4" góc dưới phải: model mặc định đọc nhầm dấu "/" nên tách 2 ô số.
+                var builderAvailableRect = new OpenCvSharp.Rect(754, 599, 11, 24);
+                var builderTotalRect = new OpenCvSharp.Rect(775, 599, 17, 24);
 
                 ReadResourceRegion(frame, goldRect, "Gold", val => Gold = val);
                 ReadResourceRegion(frame, elixirRect, "Elixir", val => Elixir = val);
                 ReadResourceRegion(frame, darkElixirRect, "DarkElixir", val => DarkElixir = val);
-
-                // Gems: viên ngọc xanh ngay dưới thanh DE. Builders: bộ đếm "1/4" góc dưới phải.
                 ReadResourceRegion(frame, gemsRect, "Gems", val => Gems = val);
-                ReadResourceRegion(frame, buildersRect, "Builders", null, text => BuilderText = text, keepSlash: true);
+
+                string builderAvailable = string.Empty;
+                string builderTotal = string.Empty;
+                ReadResourceRegion(frame, builderAvailableRect, "BuilderAvailable", null,
+                    text => builderAvailable = text, model: "coc-Builders");
+                ReadResourceRegion(frame, builderTotalRect, "BuilderTotal", null,
+                    text => builderTotal = text, model: "coc-Builders");
+                BuilderText = builderAvailable.Length > 0 && builderTotal.Length > 0
+                    ? $"{builderAvailable}/{builderTotal}"
+                    : builderAvailable;
 
                 Cv2.Rectangle(frame, goldRect, new Scalar(0, 255, 255), 2);       // Gold - vàng
                 Cv2.Rectangle(frame, elixirRect, new Scalar(255, 0, 255), 2);     // Elixir - hồng
                 Cv2.Rectangle(frame, darkElixirRect, new Scalar(128, 0, 128), 2); // DE - tím
                 Cv2.Rectangle(frame, gemsRect, new Scalar(0, 255, 0), 2);         // Gems - xanh lá
-                Cv2.Rectangle(frame, buildersRect, new Scalar(255, 0, 0), 2);     // Builders - xanh dương
+                Cv2.Rectangle(frame, builderAvailableRect, new Scalar(255, 0, 0), 2);
+                Cv2.Rectangle(frame, builderTotalRect, new Scalar(255, 0, 0), 2);
 
                 string debugPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug_all_resources.png");
                 Cv2.ImWrite(debugPath, frame);
@@ -597,14 +607,14 @@ public partial class MainViewModel : ObservableObject
     /// <param name="resourceName">Tên tài nguyên dùng cho log và tên file debug.</param>
     /// <param name="updateAction">Hàm cập nhật giá trị số.</param>
     /// <param name="updateTextAction">Hàm cập nhật giá trị dạng chữ (ví dụ "1/4").</param>
-    /// <param name="keepSlash">Giữ dấu "/" trong chuỗi đã làm sạch (dùng cho bộ đếm builder).</param>
+    /// <param name="model">Model OCR cần dùng; null = model mặc định của engine.</param>
     private void ReadResourceRegion(
         Mat frame,
         OpenCvSharp.Rect rect,
         string resourceName,
         Action<int>? updateAction,
         Action<string>? updateTextAction = null,
-        bool keepSlash = false)
+        string? model = null)
     {
         if (rect.X < 0 || rect.Y < 0 || rect.Right > frame.Width || rect.Bottom > frame.Height)
         {
@@ -613,9 +623,8 @@ public partial class MainViewModel : ObservableObject
         }
 
         using var crop = new Mat(frame, rect);
-        string rawText = _ocrEngine.Recognize(crop);
-        string cleanText = System.Text.RegularExpressions.Regex.Replace(
-            rawText, keepSlash ? @"[^\d/]" : @"[^\d]", "");
+        string rawText = model is null ? _ocrEngine.Recognize(crop) : _ocrEngine.Recognize(crop, model);
+        string cleanText = System.Text.RegularExpressions.Regex.Replace(rawText, @"[^\d]", "");
 
         // Lưu ảnh để debug
         string safeName = resourceName.ToLower().Replace(" ", "_");
