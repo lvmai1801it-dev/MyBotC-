@@ -27,9 +27,12 @@ public class Win32PostMessageInputBackend : IInputBackend
     {
     }
 
-    public bool Initialize(IntPtr windowHandle, string adbSerial = "")
+    public bool Initialize(EmulatorTarget target)
     {
-        _hWnd = windowHandle;
+        if (target.WindowHandle == null || target.WindowHandle == IntPtr.Zero)
+            throw new ArgumentException("Win32PostMessageInputBackend yêu cầu target.WindowHandle");
+
+        _hWnd = target.WindowHandle.Value;
         return _hWnd != IntPtr.Zero;
     }
 

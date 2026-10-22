@@ -16,12 +16,12 @@ public class MockReplayCaptureBackend : ICaptureBackend
 
     public bool IsRunning => _isRunning;
 
-    public bool Initialize(IntPtr windowHandle, string adbSerial)
+    public bool Initialize(EmulatorTarget target)
     {
-        // Trong Mock, tham số 'adbSerial' sẽ được dùng làm đường dẫn tới thư mục chứa ảnh
-        string directoryPath = adbSerial;
+        // Trong Mock, tham số MockRecordingPath chứa đường dẫn tới thư mục ảnh
+        string? directoryPath = target.MockRecordingPath;
 
-        if (!Directory.Exists(directoryPath))
+        if (string.IsNullOrWhiteSpace(directoryPath) || !Directory.Exists(directoryPath))
             return false;
 
         // Lấy tất cả file ảnh (.png, .jpg) và sắp xếp theo tên

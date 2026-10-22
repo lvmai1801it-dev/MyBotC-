@@ -1,10 +1,11 @@
+using System;
 using OpenCvSharp;
 
 namespace MyBot.Core.Abstractions;
 
 public interface ICaptureBackend : IDisposable
 {
-    bool Initialize(IntPtr windowHandle, string adbSerial);
+    bool Initialize(EmulatorTarget target);
     Mat GrabFrame();
     bool IsRunning { get; }
 }

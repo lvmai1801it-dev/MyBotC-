@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using MyBot.Core.Abstractions;
 using MyBot.Core.Capture;
 using MyBot.Core.Input;
 using OpenCvSharp;
@@ -25,13 +26,15 @@ public class Program
         Console.WriteLine("=== TEST MOCK LAYER (T1.3 & T1.6) ===");
         Console.WriteLine("Giả lập đang chạy 5 frames recording...\n");
 
-        // 2. Khởi tạo Mock Capture và Mock Input
+        // 2. Khởi tạo Mock Capture và Mock Input với EmulatorTarget
+        var mockTarget = new EmulatorTarget(MockRecordingPath: mockDir);
+
         using var capture = new MockReplayCaptureBackend();
-        capture.Initialize(IntPtr.Zero, mockDir);
+        capture.Initialize(mockTarget);
         capture.SetLoop(false);
 
         var input = new MockInputBackend();
-        input.Initialize(IntPtr.Zero);
+        input.Initialize(mockTarget);
 
         // 3. Chạy vòng lặp giả lập
         int frameCount = 0;

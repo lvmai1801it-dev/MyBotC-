@@ -26,9 +26,12 @@ public class AdbInputBackend : IInputBackend
     {
     }
 
-    public bool Initialize(IntPtr windowHandle, string adbSerial)
+    public bool Initialize(EmulatorTarget target)
     {
-        _adbSerial = adbSerial;
+        if (string.IsNullOrWhiteSpace(target.AdbSerial))
+            throw new ArgumentException("AdbInputBackend yêu cầu target.AdbSerial");
+
+        _adbSerial = target.AdbSerial;
         try
         {
             var result = _processRunner.Run(_adbPath, $"-s {_adbSerial} get-state", timeoutMs: 2000);

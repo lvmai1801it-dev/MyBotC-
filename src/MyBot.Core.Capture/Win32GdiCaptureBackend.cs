@@ -32,10 +32,12 @@ public class Win32GdiCaptureBackend : ICaptureBackend
 
     public bool IsRunning => _isRunning;
 
-    public bool Initialize(IntPtr windowHandle, string adbSerial = "")
+    public bool Initialize(EmulatorTarget target)
     {
-        _hWnd = windowHandle;
-        if (_hWnd == IntPtr.Zero) return false;
+        if (target.WindowHandle == null || target.WindowHandle == IntPtr.Zero)
+            throw new ArgumentException("Win32GdiCaptureBackend yêu cầu target.WindowHandle");
+
+        _hWnd = target.WindowHandle.Value;
 
         // Tự động lấy kích thước thực tế của vùng Client Area (không có title bar)
         if (!GetClientRect(_hWnd, out RECT rect)) return false;

@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using FluentAssertions;
+using MyBot.Core.Abstractions;
 using MyBot.Core.Capture;
 
 namespace MyBot.Core.Tests;
@@ -16,12 +17,9 @@ public class CaptureTests
     {
         var capture = new Win32GdiCaptureBackend();
         
-        // Không Initialize hoặc truyền Handle rỗng
-        capture.Initialize(IntPtr.Zero);
-        var frame = capture.GrabFrame();
-
-        frame.Should().NotBeNull();
-        frame.Empty().Should().BeTrue();
+        // Handle rỗng → ArgumentException
+        Action act = () => capture.Initialize(new EmulatorTarget(WindowHandle: IntPtr.Zero));
+        act.Should().Throw<ArgumentException>();
     }
 
     // T1.1.1 & T1.1.3: Kiểm tra kích thước đầu ra và Dispose
@@ -33,7 +31,7 @@ public class CaptureTests
         // Dùng Handle của Desktop (an toàn trên mọi luồng, không cần STA)
         var hWndDesktop = GetDesktopWindow();
 
-        var result = capture.Initialize(hWndDesktop);
+        var result = capture.Initialize(new EmulatorTarget(WindowHandle: hWndDesktop));
         result.Should().BeTrue();
         
         using var frame = capture.GrabFrame();

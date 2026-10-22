@@ -1,5 +1,6 @@
 using System.IO;
 using FluentAssertions;
+using MyBot.Core.Abstractions;
 using MyBot.Core.Capture;
 using MyBot.Core.Input;
 using OpenCvSharp;
@@ -13,7 +14,7 @@ public class MockLayerTests
     public void MockInput_Should_Record_Actions_Correctly()
     {
         var mock = new MockInputBackend();
-        mock.Initialize(IntPtr.Zero);
+        mock.Initialize(new EmulatorTarget());
 
         mock.Tap(100, 200);
         mock.Swipe(10, 20, 30, 40, 500);
@@ -45,9 +46,9 @@ public class MockLayerTests
             Cv2.ImWrite(Path.Combine(tempDir, $"frame_{i:D3}.png"), mat);
         }
 
-        // 2. Khởi tạo Mock
+        // 2. Khởi tạo Mock với EmulatorTarget
         using var mock = new MockReplayCaptureBackend();
-        bool init = mock.Initialize(IntPtr.Zero, tempDir);
+        bool init = mock.Initialize(new EmulatorTarget(MockRecordingPath: tempDir));
 
         // 3. Test đọc ảnh
         init.Should().BeTrue();

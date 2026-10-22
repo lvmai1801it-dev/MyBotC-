@@ -10,7 +10,7 @@ public class MockInputBackend : IInputBackend
 
     public List<RecordedAction> RecordedActions { get; } = new();
 
-    public bool Initialize(IntPtr windowHandle, string adbSerial = "")
+    public bool Initialize(EmulatorTarget target)
     {
         return true; // Mock luôn sẵn sàng
     }

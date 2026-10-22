@@ -30,7 +30,7 @@ public class AdbBackendTests
         mock.QueueResult(0, "device\n");
 
         var backend = new AdbScreencapCaptureBackend("adb", mock);
-        bool ok = backend.Initialize(IntPtr.Zero, "127.0.0.1:5555");
+        bool ok = backend.Initialize(new EmulatorTarget(AdbSerial: "127.0.0.1:5555"));
 
         ok.Should().BeTrue();
         backend.IsRunning.Should().BeTrue();
@@ -43,7 +43,7 @@ public class AdbBackendTests
         mock.QueueResult(0, "offline\n");
 
         var backend = new AdbScreencapCaptureBackend("adb", mock);
-        bool ok = backend.Initialize(IntPtr.Zero, "127.0.0.1:5555");
+        bool ok = backend.Initialize(new EmulatorTarget(AdbSerial: "127.0.0.1:5555"));
 
         ok.Should().BeFalse();
         backend.IsRunning.Should().BeFalse();
@@ -56,7 +56,7 @@ public class AdbBackendTests
         mock.QueueResult(-1, Array.Empty<byte>(), "timeout");
 
         var backend = new AdbScreencapCaptureBackend("adb", mock);
-        bool ok = backend.Initialize(IntPtr.Zero, "127.0.0.1:5555");
+        bool ok = backend.Initialize(new EmulatorTarget(AdbSerial: "127.0.0.1:5555"));
 
         ok.Should().BeFalse();
         backend.IsRunning.Should().BeFalse();
@@ -73,7 +73,7 @@ public class AdbBackendTests
         mock.QueueResult(0, pngBytes);
 
         var backend = new AdbScreencapCaptureBackend("adb", mock);
-        backend.Initialize(IntPtr.Zero, "127.0.0.1:5555");
+        backend.Initialize(new EmulatorTarget(AdbSerial: "127.0.0.1:5555"));
 
         using var frame = backend.GrabFrame();
         frame.Empty().Should().BeFalse();
@@ -89,7 +89,7 @@ public class AdbBackendTests
         mock.QueueResult(-1, Array.Empty<byte>(), "timeout");
 
         var backend = new AdbScreencapCaptureBackend("adb", mock);
-        backend.Initialize(IntPtr.Zero, "127.0.0.1:5555");
+        backend.Initialize(new EmulatorTarget(AdbSerial: "127.0.0.1:5555"));
 
         using var frame = backend.GrabFrame();
         frame.Empty().Should().BeTrue();
@@ -103,7 +103,7 @@ public class AdbBackendTests
         mock.QueueResult(0, Array.Empty<byte>());
 
         var backend = new AdbScreencapCaptureBackend("adb", mock);
-        backend.Initialize(IntPtr.Zero, "127.0.0.1:5555");
+        backend.Initialize(new EmulatorTarget(AdbSerial: "127.0.0.1:5555"));
 
         using var frame = backend.GrabFrame();
         frame.Empty().Should().BeTrue();
@@ -117,7 +117,7 @@ public class AdbBackendTests
         mock.QueueResult(0, "");
 
         var backend = new AdbInputBackend("adb", mock);
-        backend.Initialize(IntPtr.Zero, "127.0.0.1:5555");
+        backend.Initialize(new EmulatorTarget(AdbSerial: "127.0.0.1:5555"));
         backend.Tap(150, 250);
 
         mock.LastArguments.Should().HaveCount(2);
@@ -132,7 +132,7 @@ public class AdbBackendTests
         mock.QueueResult(0, "");
 
         var backend = new AdbInputBackend("adb", mock);
-        backend.Initialize(IntPtr.Zero, "127.0.0.1:5555");
+        backend.Initialize(new EmulatorTarget(AdbSerial: "127.0.0.1:5555"));
         backend.Swipe(10, 20, 30, 40, 500);
 
         mock.LastArguments.Should().HaveCount(2);
@@ -165,7 +165,7 @@ public class AdbBackendTests
         mock.QueueResult(0, "device\n");
 
         var backend = new AdbScreencapCaptureBackend("adb", mock);
-        backend.Initialize(IntPtr.Zero, "127.0.0.1:5555");
+        backend.Initialize(new EmulatorTarget(AdbSerial: "127.0.0.1:5555"));
 
         mock.LastArguments.Should().HaveCount(1);
         mock.LastArguments[0].TimeoutMs.Should().Be(2000);
