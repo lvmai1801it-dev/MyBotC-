@@ -32,6 +32,7 @@
     <ProjectReference Include="..\..\src\MyBot.Core.ActionContract\MyBot.Core.ActionContract.csproj" />
     <ProjectReference Include="..\..\src\MyBot.Core.AntiBan\MyBot.Core.AntiBan.csproj" />
     <ProjectReference Include="..\..\src\MyBot.Core.CV\MyBot.Core.CV.csproj" />
+    <ProjectReference Include="..\..\src\MyBot.Game.CoC\MyBot.Game.CoC.csproj" />
 
   </ItemGroup>
 
