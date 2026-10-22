@@ -10,7 +10,11 @@ namespace MyBot.Game.CoC.Village;
 /// </summary>
 public class CollectorHarvester
 {
-    private const double DefaultThreshold = 0.6;
+    // FIX-INT2: hạ ngưỡng để bắt được mỏ vàng dưới ánh sáng/khung hình khác nhau.
+    private const double DefaultThreshold = 0.5;
+
+    /// <summary>Các vị trí khớp của lần quét gần nhất, dùng cho ảnh debug khoanh vùng.</summary>
+    public IReadOnlyList<MatchResult> LastMatches { get; private set; } = Array.Empty<MatchResult>();
 
     private readonly ITemplateMatcher _matcher;
     private readonly IInputBackend _input;
@@ -41,7 +45,9 @@ public class CollectorHarvester
 
         int count = 0;
 
-        foreach (MatchResult match in _matcher.FindAll(frame, template, DefaultThreshold))
+        LastMatches = _matcher.FindAll(frame, template, DefaultThreshold).ToList();
+
+        foreach (MatchResult match in LastMatches)
         {
             ct.ThrowIfCancellationRequested();
 

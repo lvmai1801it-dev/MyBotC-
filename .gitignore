@@ -32,6 +32,9 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
+# Tesseract language data (binary ~23MB; copy eng.traineddata vào src/MyBot.App/tessdata)
+src/MyBot.App/tessdata/*.traineddata
+
 # Project-specific runtime artifacts
 logs/
 *.log

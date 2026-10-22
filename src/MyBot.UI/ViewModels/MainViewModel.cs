@@ -468,6 +468,14 @@ public partial class MainViewModel : ObservableObject
 
                 AddLog($"[DEBUG] Đã load ảnh mẫu: {templateMat.Width}x{templateMat.Height} pixels.");
 
+                // FIX-INT2: log điểm khớp cao nhất kể cả khi dưới ngưỡng, để biết
+                // ảnh mẫu kém hay ngưỡng còn quá cao.
+                MatchResult? bestMatch = _matcher.Find(frame, templateMat, -1.0);
+                if (bestMatch is not null)
+                {
+                    AddLog($"[DEBUG] Điểm khớp cao nhất: {bestMatch.Score:F3} tại ({bestMatch.X},{bestMatch.Y}).");
+                }
+
                 using var input = new AdbInputBackend(_adbPath, _processRunner);
                 if (!input.Initialize(target))
                 {
@@ -478,6 +486,33 @@ public partial class MainViewModel : ObservableObject
                 var harvester = new CollectorHarvester(_matcher, input, _delay);
                 int count = await harvester.HarvestAllAsync(frame, templateMat);
                 AddLog($"[DEBUG] Tìm thấy {count} mỏ vàng.");
+
+                foreach (MatchResult match in harvester.LastMatches)
+                {
+                    AddLog($"[DEBUG] Khớp tại ({match.X},{match.Y}) score={match.Score:F3}.");
+                }
+
+                string boxedPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug_frame_with_box.png");
+                using (var boxed = frame.Clone())
+                {
+                    foreach (MatchResult match in harvester.LastMatches)
+                    {
+                        var matchRect = new OpenCvSharp.Rect(match.X, match.Y, match.Width, match.Height);
+                        Cv2.Rectangle(boxed, matchRect, new Scalar(0, 0, 255), 2);
+                        Cv2.PutText(
+                            boxed,
+                            match.Score.ToString("F2"),
+                            new OpenCvSharp.Point(match.X, Math.Max(12, match.Y - 4)),
+                            HersheyFonts.HersheySimplex,
+                            0.5,
+                            new Scalar(0, 255, 255),
+                            1);
+                    }
+
+                    Cv2.ImWrite(boxedPath, boxed);
+                }
+
+                AddLog($"[DEBUG] Đã lưu ảnh khoanh vùng khớp tại: {boxedPath}");
                 AddLog($"Đã thu hoạch xong {count} mỏ vàng.");
             });
         }
