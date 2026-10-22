@@ -1,14 +1,14 @@
 # 🚀 MYBOT C# WPF - PROJECT PROGRESS & CONTEXT
 
-> **Cập nhật lần cuối:** Sau Task T7.25 (Nối ConfigManager vào UI)
-> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1 và T7.25.
+> **Cập nhật lần cuối:** Sau Task T7.26 (UI Theme Polish - Dark Mode VS Code)
+> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T7.25 và T7.26.
 > **Tổng số Tests:** 111/111 PASS (108 Core + 1 CoC + 1 Integration + 1 UI).
-> **Commit gần nhất:** xem `git log -1` — `feat(T7.25): wire ConfigManager to UI (bidirectional binding)`.
+> **Commit gần nhất:** xem `git log -1` — `style(T7.26): apply unified dark theme and fix control colors`.
 
 ## 1. TỔNG QUAN TIẾN ĐỘ
 - **Ngôn ngữ:** C# 12 / .NET 8 / WPF / MVVM (CommunityToolkit).
 - **Testing:** xUnit + FluentAssertions + Moq.
-- **Đã hoàn thành:** ~30 tasks / 148 tasks (~20%).
+- **Đã hoàn thành:** ~31 tasks / 148 tasks (~21%).
 - **Kiến trúc:** Clean Architecture, SOLID, Test-first.
 
 ## 2. CẤU TRÚC THƯ MỤC HIỆN TẠI
@@ -32,6 +32,7 @@
 5. **UI/UX (Phase 7):** Khung 475x650, Custom Title Bar, Bottom Panel (Hero shields, Loot ticker), 6 Tab đầy đủ (Log, Village, Attack, Bot, Stats, About) với Mock Data.
 6. **Computer Vision (Phase 3 - T3.1):** `TemplateMatcher` dùng `OpenCvSharp4` (`CCoeffNormed`), `Find` (khớp tốt nhất) + `FindAll` (nhiều khớp, tự vô hiệu vùng đã tìm).
 7. **Config ↔ UI (T7.25):** Tab Bot bind 2 chiều với `IConfigManager`; `AppConfig` có thêm `ActiveLanguage`, `DeleteLogsDays`, `EmulatorType`, `AdbPort`, `EnableDebugLog`; nút **Save Config / Load Config** ghi/đọc `config.json` và ghi nhật ký.
+8. **Dark Theme (T7.26):** `Themes/DarkTheme.xaml` gom brush + implicit styles (TextBox, ComboBox có template dropdown tối, CheckBox, TabControl/TabItem có gạch chân Accent, Button). Nút Start/Stop/Pause và màu Gold/Elixir/DE đã dùng brush chung.
 
 ## 4. BÀI HỌC KINH NGHIỆM (LESSONS LEARNED)
 - **Flaky Tests:** Không dùng `Thread.Sleep`, luôn dùng `ITimeProvider`.
