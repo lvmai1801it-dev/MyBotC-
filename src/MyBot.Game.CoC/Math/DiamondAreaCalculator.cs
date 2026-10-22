@@ -59,4 +59,33 @@ public static class DiamondAreaCalculator
 
         return new DiamondArea(leftPoint, rightPoint, topPoint, bottomPoint, topLeft, topRight, bottomLeft, bottomRight);
     }
+
+    /// <summary>Determines whether a point lies inside the diamond with the given center and half-axes.</summary>
+    /// <exception cref="ArgumentException">Thrown when either half-axis is not positive.</exception>
+    public static bool IsPointInside(
+        double x,
+        double y,
+        double centerX,
+        double centerY,
+        double halfWidth,
+        double halfHeight)
+    {
+        if (halfWidth <= 0 || halfHeight <= 0)
+        {
+            throw new ArgumentException("Bán trục hình thoi phải lớn hơn 0");
+        }
+
+        return System.Math.Abs(x - centerX) / halfWidth + System.Math.Abs(y - centerY) / halfHeight <= 1.0;
+    }
+
+    /// <summary>Determines whether a point lies inside the given diamond area.</summary>
+    public static bool IsPointInsideArea(Point2D point, DiamondArea area)
+    {
+        double centerX = (area.Left.X + area.Right.X) / 2.0;
+        double centerY = (area.Top.Y + area.Bottom.Y) / 2.0;
+        double halfWidth = (area.Right.X - area.Left.X) / 2.0;
+        double halfHeight = (area.Bottom.Y - area.Top.Y) / 2.0;
+
+        return IsPointInside(point.X, point.Y, centerX, centerY, halfWidth, halfHeight);
+    }
 }

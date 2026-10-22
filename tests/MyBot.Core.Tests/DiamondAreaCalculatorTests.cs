@@ -60,4 +60,55 @@ public class DiamondAreaCalculatorTests
         outer.Top.Should().Be(new Point2D(205, 45));
         outer.Bottom.Should().Be(new Point2D(205, 265));
     }
+
+    [Fact]
+    public void IsPointInside_Center_ReturnsTrue()
+    {
+        DiamondAreaCalculator.IsPointInside(50, 50, 50, 50, 20, 20).Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsPointInside_OnEdge_ReturnsTrue()
+    {
+        DiamondAreaCalculator.IsPointInside(70, 50, 50, 50, 20, 20).Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsPointInside_Outside_ReturnsFalse()
+    {
+        DiamondAreaCalculator.IsPointInside(71, 50, 50, 50, 20, 20).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsPointInside_CornerOfBoundingBox_ReturnsFalse()
+    {
+        DiamondAreaCalculator.IsPointInside(70, 70, 50, 50, 20, 20).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsPointInside_InvalidAxes_Throws()
+    {
+        Action act = () => DiamondAreaCalculator.IsPointInside(50, 50, 50, 50, 0, 20);
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void IsPointInsideArea_ValidArea_ReturnsTrue()
+    {
+        var area = new DiamondArea(
+            Left: new Point2D(0, 50),
+            Right: new Point2D(100, 50),
+            Top: new Point2D(50, 0),
+            Bottom: new Point2D(50, 100),
+            TopLeft: new Point2D(25, 25),
+            TopRight: new Point2D(75, 25),
+            BottomLeft: new Point2D(25, 75),
+            BottomRight: new Point2D(75, 75));
+
+        DiamondAreaCalculator.IsPointInsideArea(new Point2D(50, 50), area).Should().BeTrue();
+        DiamondAreaCalculator.IsPointInsideArea(new Point2D(50, 100), area).Should().BeTrue();
+        DiamondAreaCalculator.IsPointInsideArea(new Point2D(0, 50), area).Should().BeTrue();
+        DiamondAreaCalculator.IsPointInsideArea(new Point2D(10, 10), area).Should().BeFalse();
+    }
 }

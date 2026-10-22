@@ -1,14 +1,14 @@
 # 🚀 MYBOT C# WPF - PROJECT PROGRESS & CONTEXT
 
-> **Cập nhật lần cuối:** Sau Task T4.1 (DiamondAreaCalculator - Port từ AutoIt)
-> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1, T7.25, T7.26, T7.27 và T7.28.
-> **Tổng số Tests:** 122/122 PASS (119 Core + 1 CoC + 1 Integration + 1 UI).
-> **Commit gần nhất:** xem `git log -1` — `feat(T4.1): port DiamondAreaCalculator from AutoIt logic`.
+> **Cập nhật lần cuối:** Sau Task T4.2 (Diamond Containment Check)
+> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1, T4.2, T7.25, T7.26, T7.27 và T7.28.
+> **Tổng số Tests:** 128/128 PASS (125 Core + 1 CoC + 1 Integration + 1 UI).
+> **Commit gần nhất:** xem `git log -1` — `feat(T4.2): impl Diamond containment math logic`.
 
 ## 1. TỔNG QUAN TIẾN ĐỘ
 - **Ngôn ngữ:** C# 12 / .NET 8 / WPF / MVVM (CommunityToolkit).
 - **Testing:** xUnit + FluentAssertions + Moq.
-- **Đã hoàn thành:** ~35 tasks / 148 tasks (~24%).
+- **Đã hoàn thành:** ~36 tasks / 148 tasks (~24%).
 - **Kiến trúc:** Clean Architecture, SOLID, Test-first.
 
 ## 2. CẤU TRÚC THƯ MỤC HIỆN TẠI
@@ -22,7 +22,7 @@
 - `src/MyBot.Game.CoC/` (StateClassifier; `Math/` - DiamondArea, DiamondAreaCalculator)
 - `src/MyBot.UI/` (MainWindow, 6 Tabs, ViewModels)
 - `src/MyBot.App/` (App.xaml, Startup.cs - DI Composition Root)
-- `tests/MyBot.Core.Tests/` (119 tests)
+- `tests/MyBot.Core.Tests/` (125 tests)
 - `AGENTS.md` (Luật sắt cho Antigravity Agent)
 
 ## 3. CÁC MODULE ĐÃ HOÀN THIỆN (ĐÃ CÓ TEST)
@@ -38,6 +38,7 @@
 10. **UI State Matrix (T7.28):** `CurrentState` là `[ObservableProperty]` + `[NotifyPropertyChangedFor]`; Start/Stop/Pause/Resume bật/tắt và đổi chữ theo FSM; chuỗi thật `Starting(2s) → Searching`, `Pausing(1s) → Paused`, `Resuming(1s) → Searching`, `Stopping(1s) → Idle`. Nút disabled mờ 50%.
 11. **State Classifier (T3.7):** `StateClassifier` trong `MyBot.Game.CoC` dùng `ITemplateMatcher`, ưu tiên Popup → Clouds → Battle → MainVillage, trả `Unknown` cho frame rỗng/không khớp; `GetLastConfidence()` lưu score lần phân loại gần nhất. Template hiện là Mat dummy 10x10 chờ ảnh thật.
 12. **Diamond Area Geometry (T4.1):** `Point2D`, `DiamondArea` (8 điểm) và `DiamondAreaCalculator.Calculate(...)` port từ AutoIt `ConvertInternalExternArea()`; validate `innerLeft < innerRight` và `innerTop < innerBottom`, hỗ trợ offset không đối xứng cho 2 hình thoi Inner/Outer.
+13. **Diamond Containment (T4.2):** `IsPointInside(x, y, cx, cy, halfW, halfH)` dùng công thức `|dx|/W + |dy|/H <= 1.0` (biên tính là trong), ném `ArgumentException` nếu bán trục <= 0; `IsPointInsideArea(point, area)` suy ra tâm và bán trục từ 4 đỉnh `DiamondArea`.
 
 ## 4. BÀI HỌC KINH NGHIỆM (LESSONS LEARNED)
 - **Flaky Tests:** Không dùng `Thread.Sleep`, luôn dùng `ITimeProvider`.
@@ -47,7 +48,7 @@
 - **FluentAssertions:** Dùng `.BeInRange(a,b)` thay vì `.BeBetween(a,b)`.
 
 ## 5. NHIỆM VỤ TIẾP THEO (TUẦN 2)
-- **Task ngay tiếp theo:** Phase 4 — các module dùng `DiamondAreaCalculator` (chọn vùng làng/click theo hình thoi), hoặc Phase 3 — T3.2/T3.3 (tiền xử lý ảnh: grayscale, threshold, resize).
+- **Task ngay tiếp theo:** Phase 4 — các module dùng `DiamondAreaCalculator` (chọn vùng làng/click theo hình thoi, random điểm trong diamond), hoặc Phase 3 — T3.2/T3.3 (tiền xử lý ảnh: grayscale, threshold, resize).
 - **Đã xong (T7.25):** Nối `ConfigManager` vào Tab Bot để Lưu/Đọc `config.json`.
 - **Mục tiêu tuần 2:** Bot có thể chụp ảnh MEmu, nhận diện màn hình Làng (Main Village) và hiển thị trạng thái lên UI.
 
