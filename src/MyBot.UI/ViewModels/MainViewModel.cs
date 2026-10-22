@@ -557,20 +557,20 @@ public partial class MainViewModel : ObservableObject
                     return;
                 }
 
-                // Toạ độ ước lượng, user sẽ tinh chỉnh sau.
-                var goldRect = new OpenCvSharp.Rect(643, 11, 160, 32);
-                var elixirRect = new OpenCvSharp.Rect(643, 40, 160, 32);
-                var darkElixirRect = new OpenCvSharp.Rect(643, 69, 160, 32);
-                var gemsRect = new OpenCvSharp.Rect(740, 680, 80, 30);
-                var buildersRect = new OpenCvSharp.Rect(640, 680, 80, 30);
+                // Toạ độ đã hiệu chỉnh theo ảnh chụp MEmu 860x732.
+                var goldRect = new OpenCvSharp.Rect(643, 16, 200, 32);
+                var elixirRect = new OpenCvSharp.Rect(643, 53, 200, 32);
+                var darkElixirRect = new OpenCvSharp.Rect(643, 87, 205, 32);
+                var gemsRect = new OpenCvSharp.Rect(752, 127, 62, 27);
+                var buildersRect = new OpenCvSharp.Rect(754, 599, 38, 24);
 
                 ReadResourceRegion(frame, goldRect, "Gold", val => Gold = val);
                 ReadResourceRegion(frame, elixirRect, "Elixir", val => Elixir = val);
                 ReadResourceRegion(frame, darkElixirRect, "DarkElixir", val => DarkElixir = val);
 
-                // Gems và Builders nằm ở góc dưới bên phải (trên thanh Shop/Build).
+                // Gems: viên ngọc xanh ngay dưới thanh DE. Builders: bộ đếm "1/4" góc dưới phải.
                 ReadResourceRegion(frame, gemsRect, "Gems", val => Gems = val);
-                ReadResourceRegion(frame, buildersRect, "Builders", null, text => BuilderText = $"{text}/5");
+                ReadResourceRegion(frame, buildersRect, "Builders", null, text => BuilderText = text, keepSlash: true);
 
                 Cv2.Rectangle(frame, goldRect, new Scalar(0, 255, 255), 2);       // Gold - vàng
                 Cv2.Rectangle(frame, elixirRect, new Scalar(255, 0, 255), 2);     // Elixir - hồng
@@ -596,13 +596,15 @@ public partial class MainViewModel : ObservableObject
     /// <param name="rect">Vùng cần đọc.</param>
     /// <param name="resourceName">Tên tài nguyên dùng cho log và tên file debug.</param>
     /// <param name="updateAction">Hàm cập nhật giá trị số.</param>
-    /// <param name="updateTextAction">Hàm cập nhật giá trị dạng chữ (ví dụ "3/5").</param>
+    /// <param name="updateTextAction">Hàm cập nhật giá trị dạng chữ (ví dụ "1/4").</param>
+    /// <param name="keepSlash">Giữ dấu "/" trong chuỗi đã làm sạch (dùng cho bộ đếm builder).</param>
     private void ReadResourceRegion(
         Mat frame,
         OpenCvSharp.Rect rect,
         string resourceName,
         Action<int>? updateAction,
-        Action<string>? updateTextAction = null)
+        Action<string>? updateTextAction = null,
+        bool keepSlash = false)
     {
         if (rect.X < 0 || rect.Y < 0 || rect.Right > frame.Width || rect.Bottom > frame.Height)
         {
@@ -612,7 +614,8 @@ public partial class MainViewModel : ObservableObject
 
         using var crop = new Mat(frame, rect);
         string rawText = _ocrEngine.Recognize(crop);
-        string cleanText = System.Text.RegularExpressions.Regex.Replace(rawText, @"[^\d]", "");
+        string cleanText = System.Text.RegularExpressions.Regex.Replace(
+            rawText, keepSlash ? @"[^\d/]" : @"[^\d]", "");
 
         // Lưu ảnh để debug
         string safeName = resourceName.ToLower().Replace(" ", "_");
@@ -620,10 +623,15 @@ public partial class MainViewModel : ObservableObject
 
         AddLog($"[{resourceName}] Raw: '{rawText.Trim()}' -> Parsed: '{cleanText}'");
 
+        if (cleanText.Length == 0)
+        {
+            return;
+        }
+
+        updateTextAction?.Invoke(cleanText);
         if (int.TryParse(cleanText, out int val))
         {
             updateAction?.Invoke(val);
-            updateTextAction?.Invoke(cleanText);
         }
     }
 
