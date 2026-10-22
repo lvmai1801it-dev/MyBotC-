@@ -5,21 +5,20 @@ using OpenCvSharp;
 namespace MyBot.Core.CV;
 
 /// <summary>
-/// OCR engine for game digits: splits the region into digit contours and matches each one
-/// against 10 grayscale templates (<c>0.png</c>..<c>9.png</c>) using OpenCV template matching.
-/// Replaces Tesseract, which does not handle the Supercell font reliably.
+/// OCR engine for the monospaced Supercell number font. Instead of contour detection
+/// (which merges glyphs because of the game's glow), it slices the region into fixed-width
+/// cells and matches each cell against 10 digit templates.
 /// </summary>
 public class DigitOcrEngine : IOcrEngine, IDisposable
 {
-    private const int DigitWidth = 24;
-    private const int DigitHeight = 32;
+    /// <summary>Chuỗi số dài tối đa (kể cả ô trống).</summary>
+    private const int MaxCharacters = 9;
 
-    /// <summary>Ngưỡng nhị phân giữ lại lõi chữ trắng (có thể chỉnh 150-200 nếu cần).</summary>
-    private const double BinaryThreshold = 150;
+    /// <summary>Ngưỡng rất cao: chỉ giữ lõi trắng của chữ, bỏ quầng sáng vàng.</summary>
+    private const double WhiteCoreThreshold = 220;
 
-    private const int MinDigitHeight = 15;
-    private const int MaxDigitHeight = 35;
-    private const int MinDigitWidth = 2;
+    /// <summary>Điểm khớp tối thiểu để một ô được coi là chữ số.</summary>
+    private const double MatchThreshold = 0.5;
 
     private readonly Dictionary<char, Mat> _templates = new();
     private string _templateDirectory = string.Empty;
@@ -30,7 +29,7 @@ public class DigitOcrEngine : IOcrEngine, IDisposable
 
     /// <summary>
     /// Nạp 10 ảnh mẫu số từ thư mục cho trước. Ảnh mẫu được xử lý giống hệt vùng cần đọc
-    /// (grayscale → nhị phân đảo ngược → resize chuẩn) để so khớp chính xác.
+    /// (grayscale → ngưỡng lõi trắng 220 → dilate) để so khớp đúng chiều màu.
     /// </summary>
     /// <param name="templatePath">Thư mục chứa <c>0.png</c>..<c>9.png</c>.</param>
     /// <returns>True nếu nạp đủ 10 ảnh mẫu.</returns>
@@ -45,8 +44,8 @@ public class DigitOcrEngine : IOcrEngine, IDisposable
         return LoadTemplates();
     }
 
-    /// <summary>Reads all digits in the region, left to right.</summary>
-    /// <param name="frame">Region containing the number.</param>
+    /// <summary>Reads all digits in the region, left to right, using fixed-width cells.</summary>
+    /// <param name="frame">Region containing the number (monospaced font).</param>
     /// <returns>The recognized digit string, or an empty string.</returns>
     public string Recognize(Mat frame)
     {
@@ -73,59 +72,62 @@ public class DigitOcrEngine : IOcrEngine, IDisposable
         using Mat gray = new();
         Cv2.CvtColor(frame, gray, ColorConversionCodes.BGR2GRAY);
 
-        // BinaryInv: chữ trắng (> ngưỡng) → đen (0), nền vàng/đen → trắng (255).
+        // Chỉ giữ lõi trắng tinh; quầng sáng vàng và nền bị loại.
         using Mat binary = new();
-        Cv2.Threshold(gray, binary, BinaryThreshold, 255, ThresholdTypes.BinaryInv);
+        Cv2.Threshold(gray, binary, WhiteCoreThreshold, 255, ThresholdTypes.Binary);
+
+        // Làm dày nét chữ một chút trước khi cắt ô.
+        using Mat kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(2, 2));
+        Cv2.Dilate(binary, binary, kernel, iterations: 1);
 
         SaveDebugBinary(binary);
 
-        Cv2.FindContours(
-            binary,
-            out Point[][] contours,
-            out _,
-            RetrievalModes.External,
-            ContourApproximationModes.ApproxSimple);
-
-        var digitRects = new List<Rect>();
-        foreach (Point[] contour in contours)
+        // Font game là monospaced: chia vùng đọc thành MaxCharacters ô đều nhau.
+        int charWidth = binary.Width / MaxCharacters;
+        if (charWidth <= 0)
         {
-            Rect rect = Cv2.BoundingRect(contour);
-            if (rect.Height < MinDigitHeight || rect.Height > MaxDigitHeight || rect.Width < MinDigitWidth)
-            {
-                // Bỏ nhiễu nhỏ và các khối lớn (đồng xu, khung).
-                continue;
-            }
-
-            digitRects.Add(rect);
+            LastRawText = string.Empty;
+            return string.Empty;
         }
 
-        // Đọc theo thứ tự trái sang phải.
-        digitRects.Sort((left, right) => left.X.CompareTo(right.X));
-
         var result = new StringBuilder();
-        foreach (Rect rect in digitRects)
+        for (int i = 0; i < MaxCharacters; i++)
         {
-            using Mat roi = new(binary, rect);
-            using Mat resized = new();
-            Cv2.Resize(roi, resized, new Size(DigitWidth, DigitHeight), 0, 0, InterpolationFlags.Cubic);
+            int startX = i * charWidth;
+            if (startX + charWidth > binary.Width)
+            {
+                break;
+            }
 
-            result.Append(MatchDigit(resized));
+            var charRect = new Rect(startX, 0, charWidth, binary.Height);
+            using Mat charMat = new(binary, charRect);
+
+            (char digit, double score) = MatchDigit(charMat);
+            if (score > MatchThreshold)
+            {
+                result.Append(digit);
+            }
+
+            // score <= MatchThreshold: ô trống/dấu cách hoặc nhiễu → bỏ qua.
         }
 
         LastRawText = result.ToString();
         return LastRawText;
     }
 
-    /// <summary>Resizes and matches one digit against all templates, returning the best label.</summary>
-    private char MatchDigit(Mat resized)
+    /// <summary>Resizes every template to the cell size and returns the best-scoring digit.</summary>
+    private (char Digit, double Score) MatchDigit(Mat charMat)
     {
         char bestDigit = '?';
         double bestScore = double.NegativeInfinity;
 
         foreach ((char digit, Mat template) in _templates)
         {
+            using Mat resizedTemplate = new();
+            Cv2.Resize(template, resizedTemplate, charMat.Size(), 0, 0, InterpolationFlags.Cubic);
+
             using Mat scores = new();
-            Cv2.MatchTemplate(resized, template, scores, TemplateMatchModes.CCoeffNormed);
+            Cv2.MatchTemplate(charMat, resizedTemplate, scores, TemplateMatchModes.CCoeffNormed);
             Cv2.MinMaxLoc(scores, out _, out double maxScore, out _, out _);
 
             if (maxScore > bestScore)
@@ -135,10 +137,10 @@ public class DigitOcrEngine : IOcrEngine, IDisposable
             }
         }
 
-        return bestDigit;
+        return (bestDigit, bestScore);
     }
 
-    /// <summary>Loads and normalizes all 10 digit templates.</summary>
+    /// <summary>Loads and normalizes all 10 digit templates at their original size.</summary>
     private bool LoadTemplates()
     {
         ClearTemplates();
@@ -147,6 +149,8 @@ public class DigitOcrEngine : IOcrEngine, IDisposable
         {
             return false;
         }
+
+        using Mat kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(2, 2));
 
         for (int digit = 0; digit <= 9; digit++)
         {
@@ -164,11 +168,11 @@ public class DigitOcrEngine : IOcrEngine, IDisposable
                 return false;
             }
 
-            using Mat binary = new();
-            Cv2.Threshold(raw, binary, BinaryThreshold, 255, ThresholdTypes.BinaryInv);
+            using Mat whiteCore = new();
+            Cv2.Threshold(raw, whiteCore, WhiteCoreThreshold, 255, ThresholdTypes.Binary);
 
             var normalized = new Mat();
-            Cv2.Resize(binary, normalized, new Size(DigitWidth, DigitHeight), 0, 0, InterpolationFlags.Cubic);
+            Cv2.Dilate(whiteCore, normalized, kernel, iterations: 1);
             _templates[(char)('0' + digit)] = normalized;
         }
 

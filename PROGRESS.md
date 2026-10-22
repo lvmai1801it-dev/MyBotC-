@@ -1,9 +1,9 @@
 # 🚀 MYBOT C# WPF - PROJECT PROGRESS & CONTEXT
 
-> **Cập nhật lần cuối:** Sau Task FIX-OCR-6 (DigitOcrEngine thay Tesseract)
-> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1–T4.8, T4.R, T5.1 (tối giản), INT-1, INT-1.1, INT-2.5, FIX-INT2, FIX-OCR-2, FIX-OCR-4, FIX-OCR-6, T7.25, T7.26, T7.27 và T7.28.
+> **Cập nhật lần cuối:** Sau Task FIX-OCR-7 (Cắt số theo lưới monospaced)
+> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1–T4.8, T4.R, T5.1 (tối giản), INT-1, INT-1.1, INT-2.5, FIX-INT2, FIX-OCR-2, FIX-OCR-4, FIX-OCR-6, FIX-OCR-7, T7.25, T7.26, T7.27 và T7.28.
 > **Tổng số Tests:** 156/156 PASS (153 Core + 1 CoC + 1 Integration + 1 UI).
-> **Commit gần nhất:** xem `git log -1` — `feat(OCR): replace tesseract with DigitOcrEngine using template matching`.
+> **Commit gần nhất:** xem `git log -1` — `fix(OCR): use fixed-width slicing for monospaced game font`.
 
 ## 1. TỔNG QUAN TIẾN ĐỘ
 - **Ngôn ngữ:** C# 12 / .NET 8 / WPF / MVVM (CommunityToolkit).
@@ -55,6 +55,7 @@
 27. **Toạ độ Vàng + ảnh debug (FIX-OCR-2):** `ReadGoldAsync` cắt vùng `Rect(643, 11, 208, 35)`, vẽ ô xanh lá và lưu `debug_frame_with_gold_box.png` + `gold_crop.png`; `TesseractOcrEngine.PreprocessImage` (Gray → Invert → Otsu) dùng chung cho `Recognize`, lưu `gold_crop_binary.png` khi OCR trả chuỗi rỗng.
 28. **Tiền xử lý font Supercell (FIX-OCR-4):** thu hẹp vùng Vàng còn `Rect(643, 11, 150, 35)` để bỏ đồng xu; `PreprocessImage` chuyển Gray → Resize 4x Cubic → GaussianBlur 3x3 → ngưỡng cố định 200 (chỉ giữ lõi trắng) → `BitwiseNot`; `Recognize` lọc `[^\d]` và lưu `gold_crop_binary.png` khi rỗng.
 29. **DigitOcrEngine (FIX-OCR-6):** thay hoàn toàn Tesseract bằng OCR template số: Gray → `BinaryInv` ngưỡng 150 → `FindContours` → lọc contour cao 15–35 px → sắp xếp theo X → resize 24x32 → `MatchTemplate` với 10 mẫu `templates/digits/0.png`..`9.png`; lưu `gold_crop_binary.png` để debug. `Startup` khởi tạo engine với `BaseDirectory/templates/digits`; đã gỡ package Tesseract, `OcrEngine.cs` và bước copy `tessdata`.
+30. **Cắt số theo lưới (FIX-OCR-7):** bỏ `FindContours` (glow làm dính chữ); dùng Gray → ngưỡng lõi trắng 220 (`Binary`) → `Dilate` 2x2 → chia vùng đọc thành 9 ô đều (`charWidth = Width / 9`) → resize template về kích thước ô → `MatchTemplate`; chỉ nối số khi score > 0.5, ô thấp hơn coi là dấu cách.
 
 ## 4. BÀI HỌC KINH NGHIỆM (LESSONS LEARNED)
 - **Flaky Tests:** Không dùng `Thread.Sleep`, luôn dùng `ITimeProvider`.
