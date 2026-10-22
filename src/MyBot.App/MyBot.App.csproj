@@ -7,18 +7,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <!-- FIX-INT2: Tesseract cần eng.traineddata nằm cạnh file exe ở MỌI cấu hình build. -->
-  <ItemGroup>
-    <None Update="tessdata\**\*.*">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
-    <PackageReference Include="Tesseract" Version="5.2.0" />
   </ItemGroup>
 
   <ItemGroup>

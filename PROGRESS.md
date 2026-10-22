@@ -1,9 +1,9 @@
 # 🚀 MYBOT C# WPF - PROJECT PROGRESS & CONTEXT
 
-> **Cập nhật lần cuối:** Sau Task FIX-OCR-4 (Tiền xử lý font Supercell)
-> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1–T4.8, T4.R, T5.1 (tối giản), INT-1, INT-1.1, INT-2.5, FIX-INT2, FIX-OCR-2, FIX-OCR-4, T7.25, T7.26, T7.27 và T7.28.
+> **Cập nhật lần cuối:** Sau Task FIX-OCR-6 (DigitOcrEngine thay Tesseract)
+> **Trạng thái:** Đã xong Phase 0, 1, 2, R-Refactor, Phase 7 (UI Cơ bản), T3.1, T3.7, T4.1–T4.8, T4.R, T5.1 (tối giản), INT-1, INT-1.1, INT-2.5, FIX-INT2, FIX-OCR-2, FIX-OCR-4, FIX-OCR-6, T7.25, T7.26, T7.27 và T7.28.
 > **Tổng số Tests:** 156/156 PASS (153 Core + 1 CoC + 1 Integration + 1 UI).
-> **Commit gần nhất:** xem `git log -1` — `fix(OCR): use fixed threshold to extract supercell white core font`.
+> **Commit gần nhất:** xem `git log -1` — `feat(OCR): replace tesseract with DigitOcrEngine using template matching`.
 
 ## 1. TỔNG QUAN TIẾN ĐỘ
 - **Ngôn ngữ:** C# 12 / .NET 8 / WPF / MVVM (CommunityToolkit).
@@ -18,7 +18,7 @@
 - `src/MyBot.Core.FSM/` (BotState, StateMachine, Watchdog)
 - `src/MyBot.Core.ActionContract/` (DAV Executor, VisualAssertion)
 - `src/MyBot.Core.AntiBan/` (HumanDelay, BezierPath, BoundingBoxClick, CoordinateHistory, MicroBreak, Circadian, BehavioralProfile)
-- `src/MyBot.Core.CV/` (TemplateMatcher - OpenCV matchTemplate)
+- `src/MyBot.Core.CV/` (TemplateMatcher, DigitOcrEngine - OpenCV matchTemplate)
 - `src/MyBot.Game.CoC/` (StateClassifier; `Math/` - geometry, red area, dropline, classifier; `Detection/` - StorageDetector; `Village/` - CollectorHarvester)
 - `src/MyBot.UI/` (MainWindow, 6 Tabs, ViewModels)
 - `src/MyBot.App/` (App.xaml, Startup.cs - DI Composition Root)
@@ -54,6 +54,7 @@
 26. **Fix Tesseract + Debug mỏ vàng (FIX-INT2):** `MyBot.App.csproj` copy `tessdata\**\*.*` ra output cho cả Debug/Release; `TesseractOcrEngine` chuẩn hoá đường dẫn tuyệt đối, tự dò ngược lên thư mục project khi output chưa có `tessdata`, và ném `FileNotFoundException` rõ ràng nếu thiếu `eng.traineddata`; `CollectorHarvester` hạ threshold 0.5, giữ `LastMatches`, UI log điểm khớp cao nhất và lưu `debug_frame_with_box.png` (khoanh đỏ + score).
 27. **Toạ độ Vàng + ảnh debug (FIX-OCR-2):** `ReadGoldAsync` cắt vùng `Rect(643, 11, 208, 35)`, vẽ ô xanh lá và lưu `debug_frame_with_gold_box.png` + `gold_crop.png`; `TesseractOcrEngine.PreprocessImage` (Gray → Invert → Otsu) dùng chung cho `Recognize`, lưu `gold_crop_binary.png` khi OCR trả chuỗi rỗng.
 28. **Tiền xử lý font Supercell (FIX-OCR-4):** thu hẹp vùng Vàng còn `Rect(643, 11, 150, 35)` để bỏ đồng xu; `PreprocessImage` chuyển Gray → Resize 4x Cubic → GaussianBlur 3x3 → ngưỡng cố định 200 (chỉ giữ lõi trắng) → `BitwiseNot`; `Recognize` lọc `[^\d]` và lưu `gold_crop_binary.png` khi rỗng.
+29. **DigitOcrEngine (FIX-OCR-6):** thay hoàn toàn Tesseract bằng OCR template số: Gray → `BinaryInv` ngưỡng 150 → `FindContours` → lọc contour cao 15–35 px → sắp xếp theo X → resize 24x32 → `MatchTemplate` với 10 mẫu `templates/digits/0.png`..`9.png`; lưu `gold_crop_binary.png` để debug. `Startup` khởi tạo engine với `BaseDirectory/templates/digits`; đã gỡ package Tesseract, `OcrEngine.cs` và bước copy `tessdata`.
 
 ## 4. BÀI HỌC KINH NGHIỆM (LESSONS LEARNED)
 - **Flaky Tests:** Không dùng `Thread.Sleep`, luôn dùng `ITimeProvider`.
@@ -63,7 +64,7 @@
 - **FluentAssertions:** Dùng `.BeInRange(a,b)` thay vì `.BeBetween(a,b)`.
 
 ## 5. NHIỆM VỤ TIẾP THEO (TUẦN 2)
-- **Task ngay tiếp theo:** Chạy thử INT-2.5 với MEmu thật (Copy/Clear Log, Read Gold; cần `tessdata/eng.traineddata`), sau đó bổ sung Unit Test cho T5.1 và ghép T4.1–T4.8 thành module chọn điểm thả quân an toàn.
+- **Task ngay tiếp theo:** Chạy thử OCR số với MEmu thật (cần `templates/digits/0.png`..`9.png` cạnh exe), sau đó bổ sung Unit Test cho T5.1 và ghép T4.1–T4.8 thành module chọn điểm thả quân an toàn.
 - **Đã xong (T7.25):** Nối `ConfigManager` vào Tab Bot để Lưu/Đọc `config.json`.
 - **Mục tiêu tuần 2:** Bot có thể chụp ảnh MEmu, nhận diện màn hình Làng (Main Village) và hiển thị trạng thái lên UI.
 

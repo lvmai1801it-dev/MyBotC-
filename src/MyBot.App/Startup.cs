@@ -38,8 +38,14 @@ public static class Startup
         services.AddSingleton<ITemplateMatcher, TemplateMatcher>();
         services.AddTransient<HumanDelay>();
 
-        // INT-2.5: OCR engine đọc số Vàng
-        services.AddSingleton<IOcrEngine, TesseractOcrEngine>();
+        // FIX-OCR-6: OCR engine so khớp template số (thay thế Tesseract).
+        string digitTemplatesPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "templates", "digits");
+        services.AddSingleton<IOcrEngine>(_ =>
+        {
+            var engine = new DigitOcrEngine();
+            engine.Initialize(digitTemplatesPath);
+            return engine;
+        });
 
         // Cấu hình Serilog
         var logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
