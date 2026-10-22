@@ -6,6 +6,8 @@ using MyBot.Core.Abstractions;
 using MyBot.Core.Input;
 using MyBot.Core.Tests.Mocks;
 using MyBot.Game.CoC.State;
+using MyBot.Game.CoC.State.Zoom;
+using OpenCvSharp;
 
 namespace MyBot.Core.Tests;
 
@@ -57,6 +59,107 @@ public class CameraZoomerTests
 
         await act.Should().ThrowAsync<OperationCanceledException>();
         input.ScrollActions.Should().BeEmpty();
+    }
+
+    // Frame còn đổi mạnh (zoom chưa hết) → tiếp tục; frame đứng yên → dừng.
+    [Fact]
+    public async Task ZoomOutAndVerify_Should_Stop_When_Frames_Stop_Changing()
+    {
+        var input = new MockInputBackend();
+        var capture = new QueueCaptureBackend();
+        using Mat first = CreateFrame(0);
+        using Mat second = CreateFrame(200);
+        capture.Enqueue(first);
+        capture.Enqueue(second);
+        capture.Enqueue(second);
+        capture.Enqueue(second);
+
+        var zoomer = new CameraZoomer(new FakeTimeProvider());
+
+        CameraZoomResult result = await zoomer.ZoomOutAndVerifyAsync(input, capture);
+
+        result.Success.Should().BeTrue();
+        result.Ticks.Should().Be(2);
+        result.LastChangeRatio.Should().BeLessThan(0.01);
+        input.ScrollActions.Should().HaveCount(2);
+        capture.GrabCount.Should().Be(4);
+    }
+
+    // Đã ở mức zoom xa nhất → gửi 1 nấc rồi dừng, không lăn thêm làm camera trôi.
+    [Fact]
+    public async Task ZoomOutAndVerify_Should_Send_One_Tick_When_Already_Saturated()
+    {
+        var input = new MockInputBackend();
+        var capture = new QueueCaptureBackend();
+        using Mat frame = CreateFrame(150);
+        capture.Enqueue(frame);
+        capture.Enqueue(frame);
+
+        var zoomer = new CameraZoomer(new FakeTimeProvider());
+
+        CameraZoomResult result = await zoomer.ZoomOutAndVerifyAsync(input, capture);
+
+        result.Success.Should().BeTrue();
+        result.Ticks.Should().Be(1);
+        input.ScrollActions.Should().ContainSingle();
+    }
+
+    // Không chụp được frame để xác nhận → gửi tới hạn mức rồi coi như xong.
+    [Fact]
+    public async Task ZoomOutAndVerify_Should_Use_Max_Ticks_When_Frames_Unavailable()
+    {
+        var input = new MockInputBackend();
+        var capture = new QueueCaptureBackend();
+        var zoomer = new CameraZoomer(
+            new FakeTimeProvider(),
+            new ZoomOptions { MaxScrollTicks = 3 });
+
+        CameraZoomResult result = await zoomer.ZoomOutAndVerifyAsync(input, capture);
+
+        result.Success.Should().BeTrue();
+        result.Ticks.Should().Be(3);
+        input.ScrollActions.Should().HaveCount(3);
+    }
+
+    // Input từ chối lệnh lăn → báo thất bại ngay.
+    [Fact]
+    public async Task ZoomOutAndVerify_Should_Fail_When_Scroll_Fails()
+    {
+        var input = new FailingScrollInputBackend();
+        var zoomer = new CameraZoomer(new FakeTimeProvider());
+
+        CameraZoomResult result = await zoomer.ZoomOutAndVerifyAsync(
+            input,
+            new QueueCaptureBackend());
+
+        result.Success.Should().BeFalse();
+        result.Ticks.Should().Be(0);
+        input.Attempts.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ZoomOutAndVerify_Should_Throw_When_Cancelled()
+    {
+        var zoomer = new CameraZoomer(new FakeTimeProvider());
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Func<Task> act = () => zoomer.ZoomOutAndVerifyAsync(
+            new MockInputBackend(),
+            new QueueCaptureBackend(),
+            cts.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    // Frame 860x732 đồng màu, có thêm một vùng sáng để đổi nội dung.
+    private static Mat CreateFrame(byte background)
+    {
+        var frame = new Mat(732, 860, MatType.CV_8UC3, new Scalar(background, background, background));
+        using var patch = new Mat(200, 200, MatType.CV_8UC3, new Scalar(background / 2, background / 2, background / 2));
+        using Mat roi = new(frame, new Rect(300, 250, 200, 200));
+        patch.CopyTo(roi);
+        return frame;
     }
 
     private sealed class FailingScrollInputBackend : IInputBackend

@@ -362,6 +362,7 @@ public partial class MainViewModel : ObservableObject
         ProfileLock? ownedLock = _profileLock;
         ICaptureBackend? capture = null;
         IInputBackend? input = null;
+        IInputBackend? zoomInput = null;
         IAndroidDeviceController? device = null;
 
         AddLog("[Loop] Khởi động Bot...");
@@ -464,6 +465,7 @@ public partial class MainViewModel : ObservableObject
                 if (windowInput.Initialize(windowTarget))
                 {
                     input = windowInput;
+                    zoomInput = windowInput;
                 }
                 else
                 {
@@ -473,7 +475,7 @@ public partial class MainViewModel : ObservableObject
             }
             else
             {
-                // ADB input dùng cho zoom (input roll) và recovery.
+                // ADB input dùng cho recovery.
                 var adbInput = new AdbInputBackend(_adbPath, _processRunner);
                 if (adbInput.Initialize(adbTarget))
                 {
@@ -482,7 +484,15 @@ public partial class MainViewModel : ObservableObject
                 else
                 {
                     adbInput.Dispose();
-                    AddLog("[Loop] Không khởi tạo được ADB input — bỏ qua zoom.");
+                    AddLog("[Loop] Không khởi tạo được ADB input.");
+                }
+
+                // Zoom phải gửi WM_MOUSEWHEEL vào cửa sổ render của giả lập:
+                // adb shell input roll không có tác dụng với Clash of Clans (đã kiểm chứng trên MEmu).
+                zoomInput = TryCreateWindowZoomInput(adbTarget);
+                if (zoomInput is null)
+                {
+                    AddLog("[Loop] Không tìm thấy cửa sổ giả lập — zoom qua ADB có thể không tác dụng.");
                 }
             }
 
@@ -585,7 +595,26 @@ public partial class MainViewModel : ObservableObject
                     lastMainScreen = true;
 
                     // ZoomOut chuẩn hoá camera trước khi OCR (toạ độ hiệu chỉnh ở zoom chuẩn).
-                    if (input is not null)
+                    if (zoomInput is not null)
+                    {
+                        CameraZoomResult zoom = await _cameraZoomer.ZoomOutAndVerifyAsync(
+                            zoomInput,
+                            captureBackend,
+                            token);
+                        if (!zoom.Success)
+                        {
+                            AddLog("[Loop] Không thể zoom out — backend input từ chối con lăn.");
+                        }
+                        else
+                        {
+                            AddLog(
+                                $"[Loop] ZoomOut: {zoom.Ticks} nấc, " +
+                                $"thay đổi ảnh cuối {zoom.LastChangeRatio:P0}.");
+                        }
+
+                        await _time.DelayAsync(500, token);
+                    }
+                    else if (input is not null)
                     {
                         bool zoomedOut = await _cameraZoomer.ZoomOutAsync(input, token);
                         if (!zoomedOut)
@@ -629,6 +658,11 @@ public partial class MainViewModel : ObservableObject
         }
         finally
         {
+            if (!ReferenceEquals(zoomInput, input))
+            {
+                zoomInput?.Dispose();
+            }
+
             input?.Dispose();
             capture?.Dispose();
             FinishBotLoop();
@@ -643,6 +677,34 @@ public partial class MainViewModel : ObservableObject
 
             AddLog("[Loop] Đã kết thúc.");
         }
+    }
+
+    /// <summary>
+    /// Tạo input Win32 trỏ vào cửa sổ render của giả lập để gửi con lăn (zoom).
+    /// Cần thiết vì <c>adb shell input roll</c> không làm Clash of Clans đổi zoom.
+    /// </summary>
+    /// <param name="adbTarget">Target ADB đang dùng (giữ lại serial).</param>
+    /// <returns>Backend input đã khởi tạo, hoặc null nếu không tìm thấy cửa sổ.</returns>
+    private IInputBackend? TryCreateWindowZoomInput(EmulatorTarget adbTarget)
+    {
+        IReadOnlyList<EmulatorInstance> instances = _emulatorDriver.DetectRunningInstances();
+        EmulatorInstance? instance = instances.FirstOrDefault(candidate =>
+                string.Equals(candidate.EmulatorType, EmulatorType, StringComparison.OrdinalIgnoreCase))
+            ?? instances.FirstOrDefault();
+
+        if (instance is null || instance.WindowHandle == IntPtr.Zero)
+        {
+            return null;
+        }
+
+        IInputBackend windowInput = _emulatorDriver.CreateInputBackend();
+        if (windowInput.Initialize(adbTarget with { WindowHandle = instance.WindowHandle }))
+        {
+            return windowInput;
+        }
+
+        windowInput.Dispose();
+        return null;
     }
 
     /// <summary>
