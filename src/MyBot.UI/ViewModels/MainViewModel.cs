@@ -551,7 +551,7 @@ public partial class MainViewModel : ObservableObject
                 }
 
                 // FIX-OCR-4: thu hẹp chiều rộng để bỏ hẳn đồng xu bên phải.
-                var goldRect = new OpenCvSharp.Rect(643, 11, 150, 35);
+                var goldRect = new OpenCvSharp.Rect(643, 11, 200, 35);
                 if (goldRect.Right > frame.Width || goldRect.Bottom > frame.Height)
                 {
                     AddLog($"LỖI: Vùng Vàng {goldRect} vượt quá khung hình {frame.Width}x{frame.Height}.");
@@ -572,15 +572,25 @@ public partial class MainViewModel : ObservableObject
                 AddLog($"[DEBUG] Đã lưu ảnh vùng Vàng tại: {debugPath}");
 
                 string rawText = _ocrEngine.Recognize(goldMat);
-                if (int.TryParse(rawText, out int goldVal))
+                AddLog($"[DEBUG] Raw OCR Text: '{rawText.Trim()}'"); // Log để kiểm tra
+
+                if (string.IsNullOrWhiteSpace(rawText))
+                {
+                    AddLog("LỖI: OCR trả về chuỗi rỗng.");
+                    return;
+                }
+
+                // Xóa mọi ký tự không phải là số (dấu cách, phẩy, chữ O...)
+                string cleanText = System.Text.RegularExpressions.Regex.Replace(rawText, @"[^\d]", "");
+
+                if (int.TryParse(cleanText, out int goldVal))
                 {
                     Gold = goldVal;
                     AddLog($"Đọc Vàng thành công: {Gold}");
                 }
                 else
                 {
-                    AddLog($"LỖI: OCR không đọc được số Vàng (raw='{rawText}').");
-                    AddLog("[DEBUG] Đã lưu ảnh binary để kiểm tra: gold_crop_binary.png");
+                    AddLog($"LỖI: Không thể parse chuỗi '{cleanText}' thành số.");
                 }
             });
         }

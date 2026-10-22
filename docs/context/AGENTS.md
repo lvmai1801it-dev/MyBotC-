@@ -68,3 +68,8 @@ Với mỗi Task Block tôi gửi, bạn phải thực hiện đúng thứ tự:
   2. Cập nhật mã Commit gần nhất.
   3. Cập nhật "NHIỆM VỤ TIẾP THEO" (nếu có thay đổi).
 - Commit cập nhật file `PROGRESS.md` chung với commit của task đó.
+
+## 9. NGOẠI LỆ CHO TASK INTEGRATION (E2E)
+- Đối với các Task có tiền tố `[INT]`, được phép BỎ QUA Unit Test.
+- Thay vào đó, phải viết code chạy thực tế trên UI (gọi Capture, CV, Input thật).
+- Vẫn phải đảm bảo Build 0 warning, 0 error và không làm hỏng các Unit Test cũ.

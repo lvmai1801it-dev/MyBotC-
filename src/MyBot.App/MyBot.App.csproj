@@ -5,7 +5,16 @@
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- MyBot.run.dll gốc là module 32-bit, tiến trình phải chạy x86. -->
+    <PlatformTarget>x86</PlatformTarget>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Engine OCR + model gốc, copy vào thư mục lib cạnh file exe. -->
+    <None Include="..\..\native\lib\**\*.*"
+          Link="lib\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />

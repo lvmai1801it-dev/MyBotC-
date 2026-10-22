@@ -38,13 +38,26 @@ public static class Startup
         services.AddSingleton<ITemplateMatcher, TemplateMatcher>();
         services.AddTransient<HumanDelay>();
 
-        // FIX-OCR-6: OCR engine so khớp template số (thay thế Tesseract).
+        // OCR engine: ưu tiên MyBot.run.dll gốc (cùng engine/model với bản AutoIt),
+        // fallback về engine template số nếu thiếu DLL native.
+        string nativeOcrPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "lib");
         string digitTemplatesPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "templates", "digits");
-        services.AddSingleton<IOcrEngine>(_ =>
+        services.AddSingleton<IOcrEngine>(sp =>
         {
-            var engine = new DigitOcrEngine();
-            engine.Initialize(digitTemplatesPath);
-            return engine;
+            var logger = sp.GetRequiredService<IBotLogger>();
+            var nativeEngine = new MyBotNativeOcrEngine();
+            if (nativeEngine.Initialize(nativeOcrPath))
+            {
+                logger.Info($"OCR: dùng MyBot.run.dll gốc tại {nativeOcrPath}");
+                return nativeEngine;
+            }
+
+            nativeEngine.Dispose();
+
+            logger.Warning($"OCR: không nạp được MyBot.run.dll tại {nativeOcrPath}, dùng engine template số");
+            var fallback = new DigitOcrEngine();
+            fallback.Initialize(digitTemplatesPath);
+            return fallback;
         });
 
         // Cấu hình Serilog

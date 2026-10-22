@@ -49,3 +49,5 @@ config-schema.json
 *.sln.docstates
 *.sln.ide/
 .vsconfig
+# Third-party MyBot reference source (its own git repo)
+Libraries/
