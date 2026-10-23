@@ -18,4 +18,9 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- V-01: cần project logic Game.CoC để test CollectorHarvester (trước đây project chỉ có UnitTest1). -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MyBot.Game.CoC\MyBot.Game.CoC.csproj" />
+  </ItemGroup>
+
 </Project>
