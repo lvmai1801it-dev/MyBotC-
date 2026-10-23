@@ -14,12 +14,14 @@ using MyBot.Core.Capture;
 using MyBot.Core.Config;
 using MyBot.Core.Config.Models;
 using MyBot.Core.FSM;
+using MyBot.Core.FSM.Maintenance;
 using MyBot.Core.CV;
 using MyBot.Core.Input;
 using MyBot.Core.Utils;
 using MyBot.Game.CoC.State;
 using MyBot.Game.CoC.State.Zoom;
 using MyBot.Game.CoC.Village;
+using MyBot.UI.BotRuntime;
 using OpenCvSharp;
 
 namespace MyBot.UI.ViewModels;
@@ -530,105 +532,80 @@ public partial class MainViewModel : ObservableObject
             _fsm.TransitionTo(BotState.Searching);
             AddLog($"Bot đang chạy (chu kỳ {PollIntervalMs}ms).");
 
-            bool? lastMainScreen = null;
-            bool? lastBuilderBase = null;
+            // BOT-2: vòng chạy chính port từ runBot (MyBot.run.au3:930). Setup capture/emulator
+            // và các công cụ khởi động ở trên giữ nguyên; BotLoop sở hữu vòng lặp.
+            var scheduler = new MaintenanceScheduler(_time, _logger);
+            bool notMainScreenLogged = false;
 
-            while (!token.IsCancellationRequested)
+            var botContext = new BotLoopContext
             {
-                // PauseBot đã chuyển FSM sang Pausing/Paused; vòng lặp chỉ chờ.
-                if (_fsm.CurrentState is BotState.Pausing or BotState.Paused or BotState.Resuming)
+                Time = _time,
+                Logger = _logger,
+                Scheduler = scheduler,
+                Matcher = _matcher,
+                Input = input,
+
+                // Chưa nạp template mỏ từ imgxml nên thu hoạch sẽ được bỏ qua kèm cảnh báo.
+                Collector = null,
+                GrabFrameAsync = _ => Task.FromResult(captureBackend.GrabFrame()),
+                IsMainScreen = _mainScreenGuard.IsMainScreen,
+                IsBuilderBase = _mainScreenGuard.BuilderBaseTemplateEnabled
+                    ? _mainScreenGuard.IsBuilderBase
+                    : null,
+                IsPaused = () => _fsm.CurrentState is BotState.Pausing or BotState.Paused or BotState.Resuming,
+                PauseIntervalMs = PollIntervalMs,
+                ResourceReadInterval = TimeSpan.FromMilliseconds(PollIntervalMs),
+                UpdateResourcesAsync = (mat, _) =>
                 {
-                    await Task.Delay(PollIntervalMs, token);
-                    continue;
-                }
-
-                if (_fsm.CurrentState != BotState.Searching)
-                {
-                    await Task.Delay(200, token);
-                    continue;
-                }
-
-                using Mat frame = captureBackend.GrabFrame();
-                if (frame.Empty())
-                {
-                    AddLog("LỖI: Không chụp được khung hình.");
-                    await Task.Delay(PollIntervalMs, token);
-                    continue;
-                }
-
-                LogFrameSizeOnce(frame);
-
-                // FIX-GUARD: chỉ nhận diện Builder Base bằng template. Pixel mốc (844,65)
-                // chỉ dùng khi đã biết chắc đang ở BB, nếu dùng trên Main Village dễ nhận nhầm.
-                bool onBuilderBase = _mainScreenGuard.BuilderBaseTemplateEnabled
-                    && _mainScreenGuard.IsBuilderBase(frame);
-
-                if (onBuilderBase)
-                {
-                    if (lastBuilderBase != true)
-                    {
-                        AddLog("Phát hiện Builder Base — bot chưa hỗ trợ chuyển về Main Village.");
-                        lastBuilderBase = true;
-                    }
-
-                    lastMainScreen = false;
-                    await Task.Delay(PollIntervalMs, token);
-                    continue;
-                }
-
-                if (lastBuilderBase == true)
-                {
-                    lastBuilderBase = false;
-                }
-
-                bool isMainScreen = _mainScreenGuard.IsMainScreen(frame);
-
-                if (!isMainScreen)
+                    LogFrameSizeOnce(mat);
+                    UpdateResourcesFromFrame(mat);
+                    return Task.CompletedTask;
+                },
+                EnsureMainScreenAsync = async (mat, cancellationToken) =>
                 {
                     // FIX-GUARD: log màu thực tế + lưu ảnh crosshair để biết sai màu hay lệch toạ độ.
-                    LogMarkerPixel(frame);
-                    SaveMainScreenDebugImage(frame);
+                    LogMarkerPixel(mat);
+                    SaveMainScreenDebugImage(mat);
 
-                    if (lastMainScreen != false)
+                    if (!notMainScreenLogged)
                     {
                         AddLog("Không phải màn hình làng chính — đang chờ...");
-                        lastMainScreen = false;
+                        notMainScreenLogged = true;
                     }
 
                     // Vòng phục hồi: chờ mạng, restart CoC, chờ màn hình làng, reboot Android.
                     MainScreenLocationResult location = await recovery.LocateAsync(
                         captureBackend,
                         builderBase: false,
-                        token);
+                        cancellationToken);
 
-                    if (!location.Located)
+                    if (location.Located)
                     {
-                        if (location.Cancelled)
-                        {
-                            AddLog("[Loop] Đã dừng khi đang chờ màn hình làng chính.");
-                        }
-                        else
-                        {
-                            AddLog($"LỖI: {location.Reason}");
-                            TryTransitionTo(BotState.Error);
-                        }
-
-                        return;
+                        return true;
                     }
-                }
 
-                if (lastMainScreen != true)
+                    if (location.Cancelled)
+                    {
+                        AddLog("[Loop] Đã dừng khi đang chờ màn hình làng chính.");
+                        return false;
+                    }
+
+                    AddLog($"LỖI: {location.Reason}");
+                    TryTransitionTo(BotState.Error);
+                    return false;
+                },
+                OnMainScreenSeenAsync = async cancellationToken =>
                 {
+                    notMainScreenLogged = false;
                     AddLog("Đã nhận diện màn hình làng chính.");
-                    lastMainScreen = true;
 
                     // ZoomOut chuẩn hoá camera trước khi OCR (toạ độ hiệu chỉnh ở zoom chuẩn).
-                    await RunZoomOutAsync(tools.ZoomEngine, zoomInput, input, captureBackend, token);
+                    await RunZoomOutAsync(tools.ZoomEngine, zoomInput, input, captureBackend, cancellationToken);
 
                     // N3: BotDetectFirstTime → phát hiện Town Hall, kiểm tra ngôn ngữ.
-                    if (!await RunFirstTimeDetectionAsync(tools, captureBackend, token))
+                    if (!await RunFirstTimeDetectionAsync(tools, captureBackend, cancellationToken))
                     {
-                        return;
+                        return false;
                     }
 
                     // Chụp lại sau zoom để OCR đúng khung hình đã chuẩn hoá.
@@ -643,14 +620,12 @@ public partial class MainViewModel : ObservableObject
                         AddLog("LỖI: Không chụp được khung hình sau khi nhận diện làng chính.");
                     }
 
-                    await Task.Delay(PollIntervalMs, token);
-                    continue;
-                }
+                    await _time.DelayAsync(PollIntervalMs, cancellationToken);
+                    return true;
+                },
+            };
 
-                UpdateResourcesFromFrame(frame);
-
-                await Task.Delay(PollIntervalMs, token);
-            }
+            await new BotLoop(botContext).RunAsync(token);
         }
         catch (OperationCanceledException)
         {

@@ -1,8 +1,8 @@
 # ROADMAP — Port MyBot PHMOD v15.3 sang C#
 
 > **Cập nhật:** 2026-10-23
-> **Điểm xuất phát:** build `0 warning / 0 error`, 328 test PASS, GUI 40 màn hình / 2.854 control đã xong,
-> vòng bot hiện **chỉ quan sát** (chụp → nhận diện màn hình → đọc tài nguyên), chưa có hành động trong game.
+> **Điểm xuất phát:** build `0 warning / 0 error`, 371 test PASS, GUI 40 màn hình / 2.854 control đã xong,
+> vòng bot đã chạy `runBot` (init + main loop, maintenance + idle) nhưng các nhánh M3/M4 còn `StubStep` và Collect chưa nạp template `imgxml`.
 > **Nguồn số liệu:** `C:\Users\PC\Downloads\MyBot PHMOD v15.3\MyBot\MyBot_PHMOD_v15.3_Analysis_Report.md` §12
 > (include graph 332 file / 120.705 dòng,
 > 181 `DllCall`, 29 export `MyBot.run.dll`, 24 maintenance action, ADB shell thường trú, ImgLoc `.xml` đóng gói).
@@ -79,7 +79,7 @@
 
 | ID | Task | Tham chiếu AutoIt | Effort | Phụ thuộc | Trạng thái |
 |---|---|---|---|---|---|
-| RT-1 | **`PersistentAdbShell`**: console thường trú, đọc theo prompt, timeout mặc định 3.000 ms, đếm lỗi → restart daemon | `Android.au3:1934` `AndroidAdbLaunchShellInstance`, `:2333` `AndroidAdbSendShellCommand`, `Other/LaunchConsole.au3` | M | — | ⏳ |
+| RT-1 | **`PersistentAdbShell`**: console thường trú, đọc theo prompt, timeout mặc định 3.000 ms, đếm lỗi → restart daemon | ✅ `src/MyBot.Core.Capture/Adb/PersistentAdbShell.cs` + 5 test trên fake adb. **Integration gap:** chưa wire vào `AdbScreencapCaptureBackend`/`MainViewModel` (RT-1b hoặc gộp BOT-2) | M | — | ✅ |
 | RT-2 | Kênh **minitouch** riêng | `Android.au3:2445`; 21 file `.minitouch`. Cần cho kéo chính xác (dropline, zoom, center) | M | — | ⏳ |
 | RT-3 | Lớp `Pixels`: `_PixelSearch`, `_ColorCheck`, `_MultiPixelSearch`, `_CaptureRegion`, `isInsideDiamond` | `functions/Pixels/*` (8 file) | M | — | ⏳ |
 | RT-4 | Kiểm tra sức khoẻ Android: page error, time lag, điều kiện reboot, distributors | `Android/checkAndroidPageError.au3`, `checkAndroidTimeLag.au3`, `CheckAndroidRebootCondition.au3`, `Distributors.au3` | M | RT-1 | ⏳ |
@@ -91,10 +91,10 @@
 
 | ID | Task | Tham chiếu AutoIt | Effort | Phụ thuộc | Trạng thái |
 |---|---|---|---|---|---|
-| BOT-1 | **`MaintenanceScheduler`**: 24 action ID, 8 dải thời gian, 9 nhóm, `_ArrayShuffle` có seed + log, timer riêng từng action | `MyBot.run.au3:64-100` (enum/band/tên), `:783-830` `__RunMaintenanceAction(s)` | L | — | ⏳ |
-| BOT-2 | **`runBot` vòng chính** — thay vòng quan sát hiện tại bằng: Main Screen → maintenance action → idle action, giữ nguyên thứ tự AutoIt | `MyBot.run.au3` `runBot` | L | BOT-1, RT-1 | ⏳ |
+| BOT-1 | **`MaintenanceScheduler`**: 24 action ID, 8 dải thời gian, 9 nhóm, `_ArrayShuffle` có seed + log, timer riêng từng action | ✅ `src/MyBot.Core.FSM/Maintenance/` (enum + data + scheduler) + 10 test. **Chưa wire** vào `MainViewModel` (BOT-2) | L | — | ✅ |
+| BOT-2 | **`runBot` vòng chính** — thay vòng quan sát hiện tại bằng: Main Screen → maintenance action → idle action, giữ nguyên thứ tự AutoIt | ✅ `src/MyBot.UI/BotLoop/` (`BotLoop` + `BotLoopContext` + 4 step) + 33 test; `MainViewModel` chỉ còn setup + callback. **Gap:** M3/M4 còn stub, Collect chưa nạp template, chưa chạy MEmu | L | BOT-1, RT-1 | ✅ |
 | BOT-3 | Ngữ nghĩa pause/resume/stop xuyên action | `Other/TogglePause.au3`, `_SleepStatus.au3`, `BotCommand.au3` | M | BOT-2 | ⏳ |
-| V-01 | **Collect đầy đủ** (thay `CollectorHarvester` tối giản): tap mỏ theo `imgxml`, chờ animation, chống tap trùng, xử lý kho đầy | `Village/Collect.au3` | M | RT-5 | ⏳ |
+| V-01 | **Collect đầy đủ** (thay `CollectorHarvester` tối giản): tap mỏ theo `imgxml`, chờ animation, chống tap trùng, xử lý kho đầy | ✅ `Game.CoC/Village/CollectorHarvester.cs` + `CollectorResult.cs` + 7 test; port `Collect.au3:17-84`. **Gap:** chưa port `CollectLootCart`/`TreasuryCollect`, chưa wire `runBot` | M | RT-5 | ✅ |
 | V-02 | Quà & mốc: `CollectAchievements`, `FreeMagicItems`, `TreasuryCollect`, `StarBonus` | `Village/CollectAchievements.au3`, `FreeMagicItems.au3`, `TreasuryCollect.au3`, `StarBonus.au3` | M | V-01 | ⏳ |
 | V-03 | Dọn chướng ngại: mộ, cây, đá | `Image Search/CheckTombs.au3` + `imgxml` obstacle | S | RT-5 | ⏳ |
 | V-04 | Khiên: `chkShieldStatus`, `BreakPersonalShield` | `Village/chkShieldStatus.au3`, `BreakPersonalShield.au3` | S | BOT-2 | ⏳ |
@@ -190,7 +190,7 @@ Một task chỉ được đánh ✅ khi thoả **tất cả**:
 ## 12. Việc nên làm ngay
 
 1. **TD-1 + TD-2 + TD-4** ✅ — nợ kỹ thuật và GUI đã đóng; không còn việc dọn dẹp chặn đường.
-2. **RT-1** — `PersistentAdbShell`. Không có nó thì mọi milestone sau đều chậm và dễ flaky.
-3. **BOT-1 + V-01** — scheduler + collect; đây là lần đầu bot thực sự *làm* gì đó trong game.
+2. **RT-1** ✅ — `PersistentAdbShell` đã có; việc nối vào capture/Vòng bot để lại cho RT-1b hoặc BOT-2.
+3. **BOT-1** ✅ — `MaintenanceScheduler` (24 action, 8 dải, 9 nhóm, seed + log); **V-01** ✅ — `CollectorHarvester` đầy đủ (tap mỏ, dedupe, kho đầy, delay qua `ITimeProvider`); **BOT-2** ✅ — `runBot` đã nối scheduler + harvester vào vòng chạy với callback từ `MainViewModel`. Tiếp theo: **RT-5/V-02** (nạp template cho Collect) và **BOT-3** (pause/resume/stop).
 
 > Task `N5` trong `PROGRESS.md` **= BOT-2** của roadmap này.
