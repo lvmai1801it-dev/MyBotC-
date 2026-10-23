@@ -82,6 +82,45 @@ public class AdbBackendTests
     }
 
     [Fact]
+    public void AdbCapture_GrabFrame_CropsToGameArea()
+    {
+        // Ảnh thiết bị cao hơn vùng game (thanh hệ thống): AutoIt cắt 860x732 góc trên trái.
+        using var deviceMat = new Mat(780, 860, MatType.CV_8UC3, Scalar.Blue);
+        deviceMat.At<Vec3b>(0, 0) = new Vec3b(0, 0, 255);
+        Cv2.ImEncode(".png", deviceMat, out byte[] pngBytes);
+
+        var mock = new MockProcessRunner();
+        mock.QueueResult(0, "device\n");
+        mock.QueueResult(0, pngBytes);
+
+        var backend = new AdbScreencapCaptureBackend("adb", mock);
+        backend.Initialize(new EmulatorTarget(AdbSerial: "127.0.0.1:5555"));
+
+        using var frame = backend.GrabFrame();
+        frame.Width.Should().Be(860);
+        frame.Height.Should().Be(732);
+        frame.At<Vec3b>(0, 0).Should().Be(new Vec3b(0, 0, 255));
+    }
+
+    [Fact]
+    public void AdbCapture_GrabFrame_SmallFrameKeepsSize()
+    {
+        using var smallMat = new Mat(100, 100, MatType.CV_8UC3, Scalar.Green);
+        Cv2.ImEncode(".png", smallMat, out byte[] pngBytes);
+
+        var mock = new MockProcessRunner();
+        mock.QueueResult(0, "device\n");
+        mock.QueueResult(0, pngBytes);
+
+        var backend = new AdbScreencapCaptureBackend("adb", mock);
+        backend.Initialize(new EmulatorTarget(AdbSerial: "127.0.0.1:5555"));
+
+        using var frame = backend.GrabFrame();
+        frame.Width.Should().Be(100);
+        frame.Height.Should().Be(100);
+    }
+
+    [Fact]
     public void AdbCapture_GrabFrame_ProcessFail()
     {
         var mock = new MockProcessRunner();

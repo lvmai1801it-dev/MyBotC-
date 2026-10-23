@@ -15,6 +15,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" HorizontalAlignment="Center">
@@ -30,6 +31,11 @@
                 <StackPanel Grid.Column="2" HorizontalAlignment="Center">
                     <TextBlock Text="Loot / hr" Foreground="#888888" FontSize="11" HorizontalAlignment="Center" />
                     <TextBlock Text="~350k" Foreground="#DCDCAA" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="3" HorizontalAlignment="Center">
+                    <TextBlock Text="Town Hall" Foreground="#888888" FontSize="11" HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding TownHallLevel}" Foreground="#DCDCAA" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" />
                 </StackPanel>
             </Grid>
         </Border>

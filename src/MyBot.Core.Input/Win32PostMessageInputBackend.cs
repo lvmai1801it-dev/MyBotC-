@@ -28,7 +28,11 @@ public class Win32PostMessageInputBackend : IInputBackend
     private const uint WM_LBUTTONUP = 0x0202;
     private const uint WM_MOUSEMOVE = 0x0200;
     private const uint WM_MOUSEWHEEL = 0x020A;
+    private const uint WM_KEYDOWN = 0x0100;
+    private const uint WM_KEYUP = 0x0101;
     private const int MK_LBUTTON = 0x0001;
+    private const int MK_CONTROL = 0x0008;
+    private const int VK_CONTROL = 0x11;
 
     private readonly ITimeProvider _time;
     private IntPtr _hWnd = IntPtr.Zero;
@@ -107,15 +111,41 @@ public class Win32PostMessageInputBackend : IInputBackend
     /// <returns>True nếu thông điệp được gửi thành công.</returns>
     public bool Scroll(int x, int y, int delta)
     {
+        return Scroll(x, y, delta, control: false);
+    }
+
+    /// <summary>
+    /// Gửi một nấc con lăn, có thể kèm Ctrl. MEmu coi Ctrl + lăn xuống là lệnh
+    /// zoom out dự phòng (tương đương <c>ZoomOutCtrlWheelScroll()</c> của AutoIt).
+    /// </summary>
+    /// <param name="x">Toạ độ X theo vùng client của cửa sổ.</param>
+    /// <param name="y">Toạ độ Y theo vùng client của cửa sổ.</param>
+    /// <param name="delta">Độ lớn con lăn; âm = lăn xuống (zoom out).</param>
+    /// <param name="control">True để giữ Ctrl trong lúc lăn.</param>
+    /// <returns>True nếu thông điệp con lăn được gửi thành công.</returns>
+    public bool Scroll(int x, int y, int delta, bool control)
+    {
         if (_hWnd == IntPtr.Zero) return false;
 
-        // WM_MOUSEWHEEL yêu cầu toạ độ màn hình trong lParam.
+        // WM_MOUSEWHEEL yêu cầu toạ độ màn hình trong lParam và trạng thái phím
+        // ở word thấp của wParam.
         var point = new POINT { X = x, Y = y };
         ClientToScreen(_hWnd, ref point);
 
-        IntPtr wParam = (IntPtr)(delta << 16);
         IntPtr lParam = MakeLParam(point.X, point.Y);
-        return PostMessage(_hWnd, WM_MOUSEWHEEL, wParam, lParam);
+        IntPtr wParam = (IntPtr)((delta << 16) | (control ? MK_CONTROL : 0));
+
+        if (!control)
+        {
+            return PostMessage(_hWnd, WM_MOUSEWHEEL, wParam, lParam);
+        }
+
+        // Gửi kèm WM_KEYDOWN/WM_KEYUP để Qt/MEmu thấy Ctrl đang được giữ,
+        // không cần chiếm bàn phím thật của người dùng.
+        PostMessage(_hWnd, WM_KEYDOWN, (IntPtr)VK_CONTROL, (IntPtr)0x001D0001);
+        bool posted = PostMessage(_hWnd, WM_MOUSEWHEEL, wParam, lParam);
+        PostMessage(_hWnd, WM_KEYUP, (IntPtr)VK_CONTROL, unchecked((IntPtr)0xC01D0001));
+        return posted;
     }
 
     /// <summary>Đóng gói toạ độ (x, y) thành lParam cho thông điệp chuột của Win32.</summary>

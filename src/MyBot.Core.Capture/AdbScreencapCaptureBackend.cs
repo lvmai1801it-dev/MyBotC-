@@ -11,6 +11,12 @@ namespace MyBot.Core.Capture;
 /// </summary>
 public class AdbScreencapCaptureBackend : ICaptureBackend
 {
+    /// <summary>Chiều rộng khung game mà toạ độ OCR/ImgLoc được hiệu chỉnh.</summary>
+    private const int GameWidth = 860;
+
+    /// <summary>Chiều cao khung game mà toạ độ OCR/ImgLoc được hiệu chỉnh.</summary>
+    private const int GameHeight = 732;
+
     private readonly string _adbPath;
     private readonly IProcessRunner _processRunner;
     private string _adbSerial = string.Empty;
@@ -71,7 +77,24 @@ public class AdbScreencapCaptureBackend : ICaptureBackend
                 return new Mat();
             }
 
-            return Cv2.ImDecode(result.RawStdOut, ImreadModes.Color);
+            Mat frame = Cv2.ImDecode(result.RawStdOut, ImreadModes.Color);
+
+            // AutoIt's _AndroidScreencap luôn cắt vùng game 860x732 từ góc trên trái
+            // của ảnh chụp thiết bị (ảnh có thể cao hơn do thanh hệ thống).
+            if (!frame.Empty() && (frame.Width > GameWidth || frame.Height > GameHeight))
+            {
+                var gameArea = new Rect(
+                    0,
+                    0,
+                    System.Math.Min(GameWidth, frame.Width),
+                    System.Math.Min(GameHeight, frame.Height));
+                using Mat view = new(frame, gameArea);
+                Mat cropped = view.Clone();
+                frame.Dispose();
+                return cropped;
+            }
+
+            return frame;
         }
         catch
         {

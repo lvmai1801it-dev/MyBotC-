@@ -32,6 +32,26 @@ public class AppConfig
 
     [JsonProperty("enable_debug_log")]
     public bool EnableDebugLog { get; set; } = false;
+
+    /// <summary>
+    /// Cấp Town Hall đã nhận diện (<c>$g_iTownHallLevel</c>); 0 khi chưa nhận diện.
+    /// </summary>
+    [JsonProperty("town_hall_level")]
+    public int TownHallLevel { get; set; }
+
+    /// <summary>
+    /// Toạ độ X Town Hall trong hệ tham chiếu của làng (<c>$g_aiTownHallPos[0]</c>);
+    /// -1 khi chưa nhận diện. Lần chạy sau dùng để tìm cục bộ ±90 px.
+    /// </summary>
+    [JsonProperty("town_hall_x")]
+    public int TownHallX { get; set; } = -1;
+
+    /// <summary>
+    /// Toạ độ Y Town Hall trong hệ tham chiếu của làng (<c>$g_aiTownHallPos[1]</c>);
+    /// -1 khi chưa nhận diện.
+    /// </summary>
+    [JsonProperty("town_hall_y")]
+    public int TownHallY { get; set; } = -1;
 }
 
 public class EmulatorConfig

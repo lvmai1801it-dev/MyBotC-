@@ -12,10 +12,13 @@ using MyBot.Core.Abstractions;
 using MyBot.Core.AntiBan;
 using MyBot.Core.Capture;
 using MyBot.Core.Config;
+using MyBot.Core.Config.Models;
 using MyBot.Core.FSM;
+using MyBot.Core.CV;
 using MyBot.Core.Input;
 using MyBot.Core.Utils;
 using MyBot.Game.CoC.State;
+using MyBot.Game.CoC.State.Zoom;
 using MyBot.Game.CoC.Village;
 using OpenCvSharp;
 
@@ -231,6 +234,19 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _enableDebugLog = false;
 
+    // N3: Town Hall nhận diện lần đầu (BotDetectFirstTime) — lưu vào profile như AutoIt.
+    [ObservableProperty]
+    private int _townHallLevel;
+
+    [ObservableProperty]
+    private int _townHallX = -1;
+
+    [ObservableProperty]
+    private int _townHallY = -1;
+
+    // Chỉ nhận diện công trình một lần cho mỗi lần Start (giống BotDetectFirstTime).
+    private bool _townHallDetected;
+
     // Tab Stats — Lịch sử trận đánh
     [ObservableProperty]
     private ObservableCollection<BattleRecord> _battleHistory = new();
@@ -325,6 +341,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         _profileLock = profileLock;
+        _townHallDetected = false;
 
         var cts = new CancellationTokenSource();
         _botCts = cts;
@@ -364,6 +381,7 @@ public partial class MainViewModel : ObservableObject
         IInputBackend? input = null;
         IInputBackend? zoomInput = null;
         IAndroidDeviceController? device = null;
+        NativeTileSearcher? tileSearcher = null;
 
         AddLog("[Loop] Khởi động Bot...");
 
@@ -498,6 +516,16 @@ public partial class MainViewModel : ObservableObject
 
             var recovery = new MainScreenRecovery(_mainScreenGuard, _time, _logger, device);
 
+            // ZoomOut thật theo AutoIt: minitouch ADB + đo làng bằng ImgLoc của MyBot.run.dll.
+            BotStartupTools tools = CreateBotStartupTools(
+                ref tileSearcher,
+                input ?? zoomInput,
+                zoomInput,
+                captureBackend,
+                adbSerial,
+                recovery,
+                device);
+
             AddLog("Đã khởi tạo bộ chụp màn hình.");
             _fsm.TransitionTo(BotState.Searching);
             AddLog($"Bot đang chạy (chu kỳ {PollIntervalMs}ms).");
@@ -595,34 +623,12 @@ public partial class MainViewModel : ObservableObject
                     lastMainScreen = true;
 
                     // ZoomOut chuẩn hoá camera trước khi OCR (toạ độ hiệu chỉnh ở zoom chuẩn).
-                    if (zoomInput is not null)
-                    {
-                        CameraZoomResult zoom = await _cameraZoomer.ZoomOutAndVerifyAsync(
-                            zoomInput,
-                            captureBackend,
-                            token);
-                        if (!zoom.Success)
-                        {
-                            AddLog("[Loop] Không thể zoom out — backend input từ chối con lăn.");
-                        }
-                        else
-                        {
-                            AddLog(
-                                $"[Loop] ZoomOut: {zoom.Ticks} nấc, " +
-                                $"thay đổi ảnh cuối {zoom.LastChangeRatio:P0}.");
-                        }
+                    await RunZoomOutAsync(tools.ZoomEngine, zoomInput, input, captureBackend, token);
 
-                        await _time.DelayAsync(500, token);
-                    }
-                    else if (input is not null)
+                    // N3: BotDetectFirstTime → phát hiện Town Hall, kiểm tra ngôn ngữ.
+                    if (!await RunFirstTimeDetectionAsync(tools, captureBackend, token))
                     {
-                        bool zoomedOut = await _cameraZoomer.ZoomOutAsync(input, token);
-                        if (!zoomedOut)
-                        {
-                            AddLog("[Loop] Không thể zoom out — backend input không hỗ trợ con lăn.");
-                        }
-
-                        await _time.DelayAsync(500, token);
+                        return;
                     }
 
                     // Chụp lại sau zoom để OCR đúng khung hình đã chuẩn hoá.
@@ -664,6 +670,7 @@ public partial class MainViewModel : ObservableObject
             }
 
             input?.Dispose();
+            tileSearcher?.Dispose();
             capture?.Dispose();
             FinishBotLoop();
             ReleaseProfileLock(ownedLock);
@@ -678,6 +685,319 @@ public partial class MainViewModel : ObservableObject
             AddLog("[Loop] Đã kết thúc.");
         }
     }
+
+    /// <summary>
+    /// Chuẩn hoá camera về mức zoom chuẩn. Dùng engine zoom của AutoIt khi có
+    /// <c>MyBot.run.dll</c> + template đo làng; nếu không, quay về cách so sánh frame cũ.
+    /// </summary>
+    /// <param name="engine">Engine zoom đã dựng, hoặc null.</param>
+    /// <param name="zoomInput">Backend gửi con lăn (WM_MOUSEWHEEL).</param>
+    /// <param name="input">Backend input dùng cho ADB/recovery.</param>
+    /// <param name="capture">Bộ chụp màn hình.</param>
+    /// <param name="token">Token huỷ.</param>
+    private async Task RunZoomOutAsync(
+        ZoomOutEngine? engine,
+        IInputBackend? zoomInput,
+        IInputBackend? input,
+        ICaptureBackend capture,
+        CancellationToken token)
+    {
+        if (engine is not null)
+        {
+            try
+            {
+                if (await engine.ZoomOutAsync(new ZoomContext(OnMainBase: true), token))
+                {
+                    AddLog("[Loop] ZoomOut: đã đo làng, căn giữa và xác nhận mức zoom chuẩn.");
+                    await _time.DelayAsync(500, token);
+                    return;
+                }
+
+                AddLog("[Loop] ZoomOut chưa xác nhận được mức zoom — thử con lăn.");
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                AddLog($"[Loop] ZoomOut lỗi: {ex.Message} — thử con lăn.");
+            }
+        }
+
+        if (zoomInput is not null)
+        {
+            CameraZoomResult zoom = await _cameraZoomer.ZoomOutAndVerifyAsync(
+                zoomInput,
+                capture,
+                token);
+            if (!zoom.Success)
+            {
+                AddLog("[Loop] Không thể zoom out — backend input từ chối con lăn.");
+            }
+            else
+            {
+                string mode = zoom.UsedControl ? " (Ctrl)" : string.Empty;
+                AddLog(
+                    $"[Loop] ZoomOut: {zoom.Ticks} nấc{mode}, " +
+                    $"thay đổi ảnh cuối {zoom.LastChangeRatio:P0}.");
+            }
+        }
+        else if (input is not null)
+        {
+            bool zoomedOut = await _cameraZoomer.ZoomOutAsync(input, token);
+            if (!zoomedOut)
+            {
+                AddLog("[Loop] Không thể zoom out — backend input không hỗ trợ con lăn.");
+            }
+        }
+        else
+        {
+            AddLog("[Loop] Không có backend zoom.");
+        }
+
+        await _time.DelayAsync(500, token);
+    }
+
+    /// <summary>
+    /// Dựng các công cụ khởi động bot từ DLL/template của bản AutoIt: engine zoom,
+    /// bộ nhận diện Town Hall lần đầu và bộ kiểm tra ngôn ngữ. Các thành phần trả null
+    /// khi thiếu tài nguyên tương ứng — khi đó vòng lặp bỏ qua bước đó.
+    /// </summary>
+    /// <param name="tileSearcher">Nhận instance DLL searcher để dispose cuối phiên.</param>
+    /// <param name="input">Backend input để kéo căn giữa làng.</param>
+    /// <param name="wheelInput">Backend con lăn dự phòng.</param>
+    /// <param name="capture">Bộ chụp màn hình.</param>
+    /// <param name="adbSerial">Serial ADB của giả lập.</param>
+    /// <param name="recovery">Vòng phục hồi màn hình chính dùng sau restart/reboot.</param>
+    /// <param name="device">Bộ điều khiển thiết bị Android.</param>
+    /// <returns>Bộ công cụ khởi động; các trường có thể null.</returns>
+    private BotStartupTools CreateBotStartupTools(
+        ref NativeTileSearcher? tileSearcher,
+        IInputBackend? input,
+        IInputBackend? wheelInput,
+        ICaptureBackend capture,
+        string adbSerial,
+        MainScreenRecovery recovery,
+        IAndroidDeviceController? device)
+    {
+        if (input is null)
+        {
+            AddLog("[Loop] Không có input — bỏ qua zoom bằng đo làng và nhận diện Town Hall.");
+            return new BotStartupTools(null, null, null);
+        }
+
+        string baseDirectory = AppContext.BaseDirectory;
+        string libDirectory = Path.Combine(baseDirectory, "lib");
+        string villageDirectory = Path.Combine(baseDirectory, "imgxml", "village");
+        string buildingsDirectory = Path.Combine(baseDirectory, "imgxml", "Buildings");
+        string attackButtonDirectory = Path.Combine(baseDirectory, "imgxml", "buttons", "AttackButton");
+        string scriptsDirectory = Path.Combine(libDirectory, "adb.scripts");
+
+        var searcher = new NativeTileSearcher();
+        try
+        {
+            if (!searcher.Initialize(libDirectory) || !searcher.IsAvailable)
+            {
+                AddLog("[Loop] MyBot.run.dll không có export tìm template — dùng zoom cũ.");
+                searcher.Dispose();
+                return new BotStartupTools(null, null, null);
+            }
+        }
+        catch (Exception ex)
+        {
+            AddLog($"[Loop] Không nạp được MyBot.run.dll: {ex.Message} — dùng zoom cũ.");
+            searcher.Dispose();
+            return new BotStartupTools(null, null, null);
+        }
+
+        tileSearcher = searcher;
+
+        // waitMainScreen của AutoIt đặt lại village offset trước lần zoom đầu.
+        searcher.SetOffset(0, 0, 1);
+
+        var buildingInfo = new BuildingInfoReader(_ocrEngine, _time, _logger);
+        var cleaner = new MainScreenCleaner(buildingInfo, input, _time, _logger);
+        IBotFirstTimeDetector? firstTime = null;
+        if (Directory.Exists(buildingsDirectory))
+        {
+            var townHallSearcher = new TownHallSearcher(
+                searcher,
+                searcher,
+                new TownHallSearchOptions { BuildingsDirectory = buildingsDirectory },
+                _logger);
+            var townHallDetector = new TownHallDetector(
+                townHallSearcher,
+                searcher,
+                buildingInfo,
+                input,
+                cleaner,
+                _time,
+                new TownHallDetectorOptions(),
+                _logger);
+            firstTime = new BotFirstTimeDetector(townHallDetector, cleaner, _time, _logger);
+        }
+        else
+        {
+            AddLog($"[Loop] Thiếu template Town Hall tại {buildingsDirectory} — bỏ qua nhận diện lần đầu.");
+        }
+
+        var languageVerifier = new LanguageVerifier(searcher, attackButtonDirectory, _logger);
+
+        if (!Directory.Exists(villageDirectory))
+        {
+            AddLog($"[Loop] Thiếu template đo làng tại {villageDirectory} — dùng zoom cũ.");
+            return new BotStartupTools(null, firstTime, languageVerifier);
+        }
+
+        var options = new ZoomOptions();
+        var catalog = new VillageReferenceCatalog();
+        var measurer = new VillageMeasurer(
+            searcher,
+            searcher,
+            catalog,
+            villageDirectory,
+            _logger);
+        var problemDetector = new ProblemDetector(options.AndroidApiLevel, options.MidOffsetY);
+
+        var shell = new AdbShell(_adbPath, adbSerial, _processRunner);
+        var runner = new MinitouchRunner(
+            shell,
+            scriptsDirectory,
+            options.RemoteScriptsDirectory,
+            options.AdbScriptTimeoutMs,
+            _logger);
+        var androidZoom = new AndroidZoomOut(runner, EmulatorType, options.AdbScriptTimeoutMs);
+
+        // Căn giữa nhanh (ZoomOutHelperQuick): tree vùng trên phải, stone vùng giữa trái.
+        var centerer = new VillageCenterer(
+            options,
+            searcher,
+            input,
+            Path.Combine(villageDirectory, "NormalVillage"),
+            _time,
+            _logger);
+
+        var engine = new ZoomOutEngine(
+            options,
+            measurer,
+            searcher,
+            () => capture.GrabFrame(),
+            input,
+            new MinitouchZoomCommand(androidZoom),
+            wheelInput is null ? null : new ScrollZoomCommand(wheelInput, options),
+            problemDetector,
+            _time,
+            _logger,
+            centerer);
+
+        engine.RestartCoCAsync = async cancellationToken =>
+        {
+            device?.RestartApp(MainScreenRecovery.CoCPackage);
+            _ = await recovery.LocateAsync(capture, builderBase: false, cancellationToken);
+        };
+
+        engine.RebootAndroidAsync = async cancellationToken =>
+        {
+            device?.RebootDevice();
+            await _time.DelayAsync(30_000, cancellationToken).ConfigureAwait(false);
+            _ = await recovery.LocateAsync(capture, builderBase: false, cancellationToken);
+        };
+
+        AddLog("[Loop] ZoomOut engine: minitouch ADB + đo làng ImgLoc.");
+        return new BotStartupTools(engine, firstTime, languageVerifier);
+    }
+
+    /// <summary>
+    /// N3: chạy <c>BotDetectFirstTime</c> đúng một lần mỗi phiên — nhận diện Town Hall,
+    /// lưu vị trí vào profile rồi kiểm tra game đang dùng tiếng Anh.
+    /// </summary>
+    /// <param name="tools">Bộ công cụ khởi động đã dựng.</param>
+    /// <param name="capture">Bộ chụp màn hình.</param>
+    /// <param name="token">Token huỷ.</param>
+    /// <returns>False khi không xác nhận được tiếng Anh (TestLanguage yêu cầu dừng bot).</returns>
+    private async Task<bool> RunFirstTimeDetectionAsync(
+        BotStartupTools tools,
+        ICaptureBackend capture,
+        CancellationToken token)
+    {
+        if (_townHallDetected)
+        {
+            return true;
+        }
+
+        _townHallDetected = true;
+
+        if (tools.FirstTimeDetector is null)
+        {
+            AddLog("[Detect] Thiếu MyBot.run.dll hoặc template Town Hall — bỏ qua nhận diện lần đầu.");
+        }
+        else
+        {
+            // AutoIt chỉ tìm cục bộ khi vị trí đã lưu còn nằm trong vùng game.
+            TownHallPosition? saved =
+                TownHallX >= 0 && TownHallX <= 860 && TownHallY >= 0 && TownHallY <= 780
+                    ? new TownHallPosition(TownHallX, TownHallY)
+                    : null;
+
+            BotFirstTimeResult result = await tools.FirstTimeDetector
+                .DetectAsync(() => capture.GrabFrame(), saved, token);
+
+            if (result.Success)
+            {
+                TownHallLevel = result.Level;
+                TownHallX = result.VillageX;
+                TownHallY = result.VillageY;
+                PersistTownHall();
+
+                AddLog(
+                    $"[Detect] Town Hall cấp {result.Level} tại làng " +
+                    $"({result.VillageX},{result.VillageY}) — đã lưu vào profile.");
+            }
+            else
+            {
+                // AutoIt khôi phục vị trí/cấp cũ rồi tiếp tục chạy bot.
+                AddLog($"[Detect] {result.Message} Giữ vị trí Town Hall đã lưu.");
+            }
+        }
+
+        // N3.6: TestLanguage — không xác nhận được nút Attack thì dừng như btnStop().
+        if (tools.LanguageVerifier is not null
+            && !tools.LanguageVerifier.Verify(() => capture.GrabFrame()))
+        {
+            AddLog("[Detect] Không xác nhận được tiếng Anh — dừng bot.");
+            TryTransitionTo(BotState.Error);
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>Lưu cấp và vị trí Town Hall vào profile để lần chạy sau tìm cục bộ ±90 px.</summary>
+    private void PersistTownHall()
+    {
+        try
+        {
+            AppConfig config = _configManager.Load();
+            config.TownHallLevel = TownHallLevel;
+            config.TownHallX = TownHallX;
+            config.TownHallY = TownHallY;
+            _configManager.Save(config);
+        }
+        catch (Exception ex)
+        {
+            AddLog($"[Detect] Không lưu được vị trí Town Hall: {ex.Message}");
+        }
+    }
+
+    /// <summary>Các công cụ dựng một lần khi bắt đầu vòng lặp bot.</summary>
+    /// <param name="ZoomEngine">Engine zoom; null khi thiếu DLL/template/input.</param>
+    /// <param name="FirstTimeDetector">Bộ nhận diện Town Hall lần đầu; null khi thiếu template.</param>
+    /// <param name="LanguageVerifier">Bộ kiểm tra tiếng Anh; null khi thiếu DLL.</param>
+    private sealed record BotStartupTools(
+        ZoomOutEngine? ZoomEngine,
+        IBotFirstTimeDetector? FirstTimeDetector,
+        ILanguageVerifier? LanguageVerifier);
 
     /// <summary>
     /// Tạo input Win32 trỏ vào cửa sổ render của giả lập để gửi con lăn (zoom).
@@ -1278,6 +1598,9 @@ public partial class MainViewModel : ObservableObject
             AndroidInstance = config.AndroidInstance;
             AdbPort = config.AdbPort;
             EnableDebugLog = config.EnableDebugLog;
+            TownHallLevel = config.TownHallLevel;
+            TownHallX = config.TownHallX;
+            TownHallY = config.TownHallY;
 
             AddLog("Config loaded from config.json");
         }
@@ -1304,6 +1627,9 @@ public partial class MainViewModel : ObservableObject
             config.AndroidInstance = AndroidInstance;
             config.AdbPort = AdbPort;
             config.EnableDebugLog = EnableDebugLog;
+            config.TownHallLevel = TownHallLevel;
+            config.TownHallX = TownHallX;
+            config.TownHallY = TownHallY;
 
             // Đồng bộ khối cấu hình emulator lồng nhau (định dạng cũ) để tránh lệch dữ liệu.
             if (config.Emulator is not null)

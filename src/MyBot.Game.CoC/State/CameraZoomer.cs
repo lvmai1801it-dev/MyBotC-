@@ -92,8 +92,10 @@ public sealed class CameraZoomer
     /// tối đa làm camera bị trôi ngang trên MEmu).
     /// </summary>
     /// <remarks>
-    /// Đây là mức xác nhận gần đúng thay cho <c>SearchZoomOut</c> của AutoIt;
-    /// khi có bộ template <c>imgxml/village</c> có thể thay bằng đo kích thước làng.
+    /// Nếu nấc lăn thường không làm frame đổi, thử lại bằng Ctrl + lăn xuống
+    /// (<c>ZoomOutCtrlWheelScroll</c> của AutoIt) trước khi kết luận đã hết mức zoom.
+    /// Đây là mức xác nhận gần đúng thay cho <c>SearchZoomOut</c>; khi có bộ template
+    /// <c>imgxml/village</c> có thể thay bằng đo kích thước làng.
     /// </remarks>
     /// <param name="input">Backend input có hỗ trợ con lăn.</param>
     /// <param name="capture">Backend chụp màn hình dùng để so sánh trước/sau.</param>
@@ -108,6 +110,8 @@ public sealed class CameraZoomer
         ArgumentNullException.ThrowIfNull(capture);
 
         double lastChangeRatio = 1.0;
+        bool useControl = false;
+        int sentTicks = 0;
 
         for (int tick = 0; tick < _options.MaxScrollTicks; tick++)
         {
@@ -115,11 +119,12 @@ public sealed class CameraZoomer
 
             using Mat before = Grab(capture);
 
-            if (!input.Scroll(_options.CenterX, _options.CenterY, _options.WheelDelta))
+            if (!input.Scroll(_options.CenterX, _options.CenterY, _options.WheelDelta, useControl))
             {
-                return new CameraZoomResult(false, tick, lastChangeRatio);
+                return new CameraZoomResult(false, sentTicks, lastChangeRatio, useControl);
             }
 
+            sentTicks++;
             await _time.DelayAsync(_options.SettleDelayMs, cancellationToken).ConfigureAwait(false);
 
             using Mat after = Grab(capture);
@@ -134,14 +139,23 @@ public sealed class CameraZoomer
             lastChangeRatio = CalculateChangeRatio(before, after);
             if (lastChangeRatio < _options.SaturatedChangeRatio)
             {
-                return new CameraZoomResult(true, tick + 1, lastChangeRatio);
+                if (!useControl)
+                {
+                    // Lăn thường không đổi camera: có thể đã hết mức zoom, hoặc MEmu
+                    // không nhận con lăn trơn. Thử Ctrl + lăn xuống trước khi dừng.
+                    useControl = true;
+                    await _time.DelayAsync(_options.TickDelayMs, cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
+
+                return new CameraZoomResult(true, sentTicks, lastChangeRatio, useControl);
             }
 
             await _time.DelayAsync(_options.TickDelayMs, cancellationToken).ConfigureAwait(false);
         }
 
         // Đã gửi hết hạn mức; coi như đã zoom hết mức có thể.
-        return new CameraZoomResult(true, _options.MaxScrollTicks, lastChangeRatio);
+        return new CameraZoomResult(true, sentTicks, lastChangeRatio, useControl);
     }
 
     private static Mat Grab(ICaptureBackend capture)
@@ -205,4 +219,9 @@ public sealed class CameraZoomer
 /// <param name="Success">False nếu backend input từ chối lệnh con lăn.</param>
 /// <param name="Ticks">Số nấc con lăn đã gửi.</param>
 /// <param name="LastChangeRatio">Tỉ lệ điểm ảnh đổi ở lần đo cuối (0..1).</param>
-public sealed record CameraZoomResult(bool Success, int Ticks, double LastChangeRatio);
+/// <param name="UsedControl">True nếu đã dùng Ctrl + lăn xuống (chế độ dự phòng).</param>
+public sealed record CameraZoomResult(
+    bool Success,
+    int Ticks,
+    double LastChangeRatio,
+    bool UsedControl = false);

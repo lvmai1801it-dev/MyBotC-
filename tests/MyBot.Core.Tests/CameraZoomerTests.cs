@@ -61,7 +61,8 @@ public class CameraZoomerTests
         input.ScrollActions.Should().BeEmpty();
     }
 
-    // Frame còn đổi mạnh (zoom chưa hết) → tiếp tục; frame đứng yên → dừng.
+    // Frame còn đổi mạnh (zoom chưa hết) → tiếp tục; nấc thường không đổi →
+    // thử lại bằng Ctrl + lăn xuống; Ctrl cũng không đổi → dừng.
     [Fact]
     public async Task ZoomOutAndVerify_Should_Stop_When_Frames_Stop_Changing()
     {
@@ -73,19 +74,26 @@ public class CameraZoomerTests
         capture.Enqueue(second);
         capture.Enqueue(second);
         capture.Enqueue(second);
+        capture.Enqueue(second);
+        capture.Enqueue(second);
 
         var zoomer = new CameraZoomer(new FakeTimeProvider());
 
         CameraZoomResult result = await zoomer.ZoomOutAndVerifyAsync(input, capture);
 
         result.Success.Should().BeTrue();
-        result.Ticks.Should().Be(2);
+        result.Ticks.Should().Be(3);
+        result.UsedControl.Should().BeTrue();
         result.LastChangeRatio.Should().BeLessThan(0.01);
-        input.ScrollActions.Should().HaveCount(2);
-        capture.GrabCount.Should().Be(4);
+        input.ScrollActions.Should().HaveCount(3);
+        input.ScrollActions[0].Control.Should().BeFalse();
+        input.ScrollActions[1].Control.Should().BeFalse();
+        input.ScrollActions[2].Control.Should().BeTrue();
+        capture.GrabCount.Should().Be(6);
     }
 
-    // Đã ở mức zoom xa nhất → gửi 1 nấc rồi dừng, không lăn thêm làm camera trôi.
+    // Đã ở mức zoom xa nhất → 1 nấc thường + 1 nấc Ctrl đều không đổi thì dừng,
+    // không lăn thêm làm camera trôi.
     [Fact]
     public async Task ZoomOutAndVerify_Should_Send_One_Tick_When_Already_Saturated()
     {
@@ -94,14 +102,50 @@ public class CameraZoomerTests
         using Mat frame = CreateFrame(150);
         capture.Enqueue(frame);
         capture.Enqueue(frame);
+        capture.Enqueue(frame);
+        capture.Enqueue(frame);
 
         var zoomer = new CameraZoomer(new FakeTimeProvider());
 
         CameraZoomResult result = await zoomer.ZoomOutAndVerifyAsync(input, capture);
 
         result.Success.Should().BeTrue();
-        result.Ticks.Should().Be(1);
-        input.ScrollActions.Should().ContainSingle();
+        result.Ticks.Should().Be(2);
+        result.UsedControl.Should().BeTrue();
+        result.LastChangeRatio.Should().BeLessThan(0.01);
+        input.ScrollActions.Should().HaveCount(2);
+        input.ScrollActions[0].Control.Should().BeFalse();
+        input.ScrollActions[1].Control.Should().BeTrue();
+    }
+
+    // Lăn thường không làm camera đổi nhưng Ctrl + lăn xuống thì có → tiếp tục zoom
+    // bằng Ctrl cho tới khi hết mức.
+    [Fact]
+    public async Task ZoomOutAndVerify_Should_Fall_Back_To_Control_Wheel()
+    {
+        var input = new MockInputBackend();
+        var capture = new QueueCaptureBackend();
+        using Mat zoomed = CreateFrame(60);
+        using Mat outFurther = CreateFrame(220);
+        capture.Enqueue(zoomed);      // before tick 1
+        capture.Enqueue(zoomed);      // normal tick không đổi
+        capture.Enqueue(zoomed);      // before tick 2
+        capture.Enqueue(outFurther);  // Ctrl tick có đổi
+        capture.Enqueue(outFurther);  // before tick 3
+        capture.Enqueue(outFurther);  // Ctrl tick không đổi → dừng
+
+        var zoomer = new CameraZoomer(new FakeTimeProvider());
+
+        CameraZoomResult result = await zoomer.ZoomOutAndVerifyAsync(input, capture);
+
+        result.Success.Should().BeTrue();
+        result.Ticks.Should().Be(3);
+        result.UsedControl.Should().BeTrue();
+        input.ScrollActions.Should().HaveCount(3);
+        input.ScrollActions[0].Control.Should().BeFalse();
+        input.ScrollActions[1].Control.Should().BeTrue();
+        input.ScrollActions[1].Delta.Should().Be(CameraZoomer.WheelDelta);
+        input.ScrollActions[2].Control.Should().BeTrue();
     }
 
     // Không chụp được frame để xác nhận → gửi tới hạn mức rồi coi như xong.
@@ -118,6 +162,7 @@ public class CameraZoomerTests
 
         result.Success.Should().BeTrue();
         result.Ticks.Should().Be(3);
+        result.UsedControl.Should().BeFalse();
         input.ScrollActions.Should().HaveCount(3);
     }
 

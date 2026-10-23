@@ -14,7 +14,8 @@ public class MockInputBackend : IInputBackend
     /// <param name="X">Toạ độ X.</param>
     /// <param name="Y">Toạ độ Y.</param>
     /// <param name="Delta">Độ lớn con lăn (âm = zoom out).</param>
-    public record ScrollAction(int X, int Y, int Delta);
+    /// <param name="Control">True nếu lăn kèm phím Ctrl.</param>
+    public record ScrollAction(int X, int Y, int Delta, bool Control = false);
 
     /// <summary>Danh sách các nấc con lăn đã ghi lại.</summary>
     public List<ScrollAction> ScrollActions { get; } = new();
@@ -66,7 +67,18 @@ public class MockInputBackend : IInputBackend
     /// <returns>Luôn trả về True.</returns>
     public bool Scroll(int x, int y, int delta)
     {
-        ScrollActions.Add(new ScrollAction(x, y, delta));
+        return Scroll(x, y, delta, control: false);
+    }
+
+    /// <summary>Ghi lại một nấc con lăn chuột, có hoặc không kèm Ctrl.</summary>
+    /// <param name="x">Toạ độ X.</param>
+    /// <param name="y">Toạ độ Y.</param>
+    /// <param name="delta">Độ lớn con lăn.</param>
+    /// <param name="control">True nếu lăn kèm phím Ctrl.</param>
+    /// <returns>Luôn trả về True.</returns>
+    public bool Scroll(int x, int y, int delta, bool control)
+    {
+        ScrollActions.Add(new ScrollAction(x, y, delta, control));
         return true;
     }
 

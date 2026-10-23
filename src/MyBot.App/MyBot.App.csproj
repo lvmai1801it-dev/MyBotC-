@@ -15,6 +15,10 @@
     <None Include="..\..\native\lib\**\*.*"
           Link="lib\%(RecursiveDir)%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />
+    <!-- Template đo làng (scenery/stone/tree) dùng bởi GetVillageSize. -->
+    <None Include="..\..\native\imgxml\**\*.*"
+          Link="imgxml\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
