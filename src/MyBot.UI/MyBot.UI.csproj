@@ -13,6 +13,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Bố cục GUI sinh từ bản AutoIt (xem tools/gui-spec + docs/context/06_...md). -->
+    <EmbeddedResource Include="Gui\gui-spec.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MyBot.Localization\MyBot.Localization.csproj" />
     <ProjectReference Include="..\MyBot.Core\MyBot.Core.csproj" />
     <ProjectReference Include="..\MyBot.Core.Capture\MyBot.Core.Capture.csproj" />
     <ProjectReference Include="..\MyBot.Core.Config\MyBot.Core.Config.csproj" />

@@ -10,7 +10,10 @@ using MyBot.Core.CV;
 using MyBot.Core.FSM;
 using MyBot.Core.Logging;
 using MyBot.Core.Utils;
+using MyBot.Localization;
 using MyBot.UI;
+using MyBot.UI.Gui;
+using MyBot.UI.Icons;
 using MyBot.UI.Tabs.Log;
 using MyBot.UI.ViewModels;
 using Serilog;
@@ -93,6 +96,13 @@ public static class Startup
             fsm.TransitionTo(BotState.Idle);
             return fsm;
         });
+
+        // GUI dựng lại từ bản AutoIt: bộ dịch i18n, mô tả màn hình và nguồn icon.
+        services.AddSingleton<IMyBotTranslator>(_ => new IniFileTranslator(
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Languages")));
+        services.AddSingleton(_ => GuiSpecCatalog.Load());
+        services.AddSingleton(_ => new MbrBotIconProvider(
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "lib", "MBRBOT.dll")));
 
         // Đăng ký MainWindow và ViewModel chính
         services.AddTransient<MainViewModel>();

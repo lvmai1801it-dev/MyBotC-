@@ -19,6 +19,10 @@
     <None Include="..\..\native\imgxml\**\*.*"
           Link="imgxml\%(RecursiveDir)%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />
+    <!-- Ảnh logo / dải URL của cửa sổ chính (MBR GUI Design.au3). -->
+    <None Include="..\..\native\images\**\*.*"
+          Link="images\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
@@ -30,6 +34,7 @@
   <ItemGroup>
     <ProjectReference Include="..\MyBot.Core\MyBot.Core.csproj" />
     <ProjectReference Include="..\MyBot.Core.FSM\MyBot.Core.FSM.csproj" />
+    <ProjectReference Include="..\MyBot.Localization\MyBot.Localization.csproj" />
     <ProjectReference Include="..\MyBot.UI\MyBot.UI.csproj" />
     <ProjectReference Include="..\MyBot.UI.Tabs.Log\MyBot.UI.Tabs.Log.csproj" />
     <ProjectReference Include="..\MyBot.Game.CoC\MyBot.Game.CoC.csproj" />

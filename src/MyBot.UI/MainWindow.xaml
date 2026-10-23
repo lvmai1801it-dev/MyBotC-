@@ -3,120 +3,95 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:views="clr-namespace:MyBot.UI.Views"
         mc:Ignorable="d"
-        Title="MyBot.run v1.0"
-        Width="475"
-        Height="650"
+        Title="MyBot.run"
+        Width="472"
+        Height="715"
         WindowStyle="None"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource BackgroundMain}">
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="30" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="115" />
-        </Grid.RowDefinitions>
+        Background="#F0F0F0"
+        SnapsToDevicePixels="True"
+        UseLayoutRounding="True">
 
-        <!-- Row 0: Custom Title Bar -->
-        <Grid Grid.Row="0"
-              Background="{StaticResource BackgroundPanel}"
-              MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+    <!--
+        Cửa sổ chính dựng lại đúng bố cục AutoIt (MBR GUI Design.au3:196-355).
+        Toàn bộ toạ độ là pixel tuyệt đối trên một Canvas 472x715:
 
-            <TextBlock Grid.Column="0"
-                       Text="MyBot.run v1.0"
-                       FontSize="12"
-                       Foreground="White"
-                       VerticalAlignment="Center"
-                       Margin="10,0,0,0" />
+          0    .. 23   thanh tiêu đề tự vẽ (nhãn trắng + 4 nút caption)
+          23   .. 90   ảnh logo   (images/Logo.png, 472x67)
+          90   .. 103  ảnh URL    (images/LogoURL.png, 472x13)
+          108  .. 575  tab control chính 463x467 — dựng bởi MainGuiBuilder
+          580  .. 715  panel đáy 472x135  — dựng từ màn hình "Bottom"
+    -->
+    <Canvas x:Name="RootCanvas" Width="472" Height="715" Background="#F0F0F0">
 
-            <StackPanel Grid.Column="1"
-                        Orientation="Horizontal">
-                <Button Width="45"
-                        Height="30"
-                        Background="Transparent"
-                        Foreground="White"
-                        BorderThickness="0"
-                        Content="—"
-                        Click="BtnMinimize_Click" />
-                <Button Width="45"
-                        Height="30"
-                        Background="#E81123"
-                        Foreground="White"
-                        BorderThickness="0"
-                        Content="✕"
-                        Click="BtnClose_Click" />
-            </StackPanel>
-        </Grid>
+        <!--
+            Thanh tiêu đề tự vẽ — chỉ dùng khi botDesignFlags bit 0 = 1.
+            parity: CreateMainGUI @ COCBot/MBR GUI Design Mini.au3:126.
+        -->
+        <Canvas x:Name="TitleBarHost" Canvas.Left="0" Canvas.Top="0" Width="472" Height="23">
 
-        <!-- Row 1: Content Area (6 Tabs) -->
-        <TabControl Grid.Row="1">
-            <!-- 1. Log Tab -->
-            <TabItem Header="Log">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+            <!-- Vùng kéo cửa sổ bên trái thanh tiêu đề (25px, trước tiêu đề). -->
+            <Border Canvas.Left="0" Canvas.Top="0"
+                    Width="25" Height="23"
+                    Background="White"
+                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown" />
 
-                    <ListBox Grid.Row="0"
-                             ItemsSource="{Binding LogMessages}"
-                             Background="{StaticResource BackgroundMain}"
-                             Foreground="LightGreen"
-                             FontFamily="Consolas, Courier New"
-                             FontSize="12"
-                             BorderThickness="0"
-                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto" />
+            <!-- Tiêu đề: rộng = 472 - 4*25 - 25 = 347, chữ Segoe UI 11pt màu #171717. -->
+            <Border Canvas.Left="25" Canvas.Top="0"
+                    Width="347" Height="23"
+                    Background="White"
+                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <TextBlock x:Name="TitleText"
+                           FontFamily="Segoe UI"
+                           FontSize="14.667"
+                           Foreground="#171717"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+            </Border>
 
-                    <StackPanel Grid.Row="1"
-                                Orientation="Horizontal"
-                                HorizontalAlignment="Left"
-                                Margin="5">
-                        <Button Content="Clear Log"
-                                Command="{Binding ClearLogCommand}"
-                                Margin="0,0,5,0"
-                                Padding="8,3" />
-                        <Button Content="Copy Log"
-                                Command="{Binding CopyLogCommand}"
-                                Margin="5,0,0,0"
-                                Padding="8,3" />
-                    </StackPanel>
-                </Grid>
-            </TabItem>
+            <!-- Nút thu nhỏ / mini / đóng (25x17 mỗi nút, đặt tại x = 372, 397, 422, 447). -->
+            <Border Canvas.Left="372" Canvas.Top="0" Width="25" Height="17" Background="#F0F0F0"
+                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <TextBlock Text="&#x25C4;" FontFamily="Segoe UI" FontSize="13.333"
+                           Foreground="#B8B8B8" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <Border Canvas.Left="397" Canvas.Top="0" Width="25" Height="17" Background="#F0F0F0"
+                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <TextBlock Text="&#x2584;" FontFamily="Segoe UI" FontSize="13.333"
+                           Foreground="#B8B8B8" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <Border x:Name="MinimizeButton" Canvas.Left="422" Canvas.Top="0" Width="25" Height="17"
+                    Background="#F0F0F0" Cursor="Hand"
+                    MouseLeftButtonDown="BtnMinimize_Click">
+                <TextBlock Text="&#x0336;" FontFamily="Segoe UI" FontSize="13.333"
+                           Foreground="#B8B8B8" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <Border x:Name="CloseButton" Canvas.Left="447" Canvas.Top="0" Width="25" Height="17"
+                    Background="#FF4040" Cursor="Hand"
+                    MouseLeftButtonDown="BtnClose_Click">
+                <TextBlock Text="&#x00D7;" FontFamily="Segoe UI" FontSize="13.333"
+                           Foreground="#F8F8F8" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
 
-            <!-- 2. Village Tab -->
-            <TabItem Header="Village">
-                <views:VillageTabView />
-            </TabItem>
+            <!-- Dải trắng lấp khoảng trống dưới hàng nút caption (6px). -->
+            <Border Canvas.Left="372" Canvas.Top="17" Width="100" Height="6" Background="White"
+                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown" />
+        </Canvas>
 
-            <!-- 3. Attack Plan Tab -->
-            <TabItem Header="Attack Plan">
-                <views:AttackTabView />
-            </TabItem>
+        <!-- Ảnh logo và dải URL (nạp từ images/ cạnh file thực thi). -->
+        <Image x:Name="LogoImage" Canvas.Left="0" Canvas.Top="23"
+               Width="472" Height="67" Stretch="Fill"
+               MouseLeftButtonDown="TitleBar_MouseLeftButtonDown" />
+        <Image x:Name="LogoUrlImage" Canvas.Left="0" Canvas.Top="90"
+               Width="472" Height="13" Stretch="Fill"
+               MouseLeftButtonDown="TitleBar_MouseLeftButtonDown" />
 
-            <!-- 4. Bot Config Tab -->
-            <TabItem Header="Bot">
-                <views:BotTabView />
-            </TabItem>
+        <!-- Tab control chính, được đổ nội dung trong MainWindow.xaml.cs. -->
+        <Canvas x:Name="TabsHost" Canvas.Left="5" Canvas.Top="108" Width="463" Height="467" />
 
-            <!-- 5. Stats Tab -->
-            <TabItem Header="Stats">
-                <views:StatsTabView />
-            </TabItem>
-
-            <!-- 6. About Tab -->
-            <TabItem Header="About">
-                <views:AboutTabView />
-            </TabItem>
-        </TabControl>
-
-        <!-- Row 2: Bottom Panel (UserControl) -->
-        <views:BottomPanelView Grid.Row="2" />
-    </Grid>
+        <!-- Panel đáy 472x135. -->
+        <ContentControl x:Name="BottomHost" Canvas.Left="0" Canvas.Top="580" Width="472" Height="135" />
+    </Canvas>
 </Window>
